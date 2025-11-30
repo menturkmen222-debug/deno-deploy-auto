@@ -1,4 +1,5 @@
-import { getReadyToUploadVideos } from "../db/queue.ts";
+// routes/schedule.ts
+import { getReadyToUploadVideos, updateVideoStatus } from "../db/queue.ts";
 import { generateMetadata } from "../services/groq.ts";
 import { uploadToYouTube } from "../services/platforms/youtube.ts";
 import { uploadToTikTok } from "../services/platforms/tiktok.ts";
@@ -15,7 +16,7 @@ const PLATFORM_UPLOADERS: Record<string, Function> = {
 export async function handleSchedule(): Promise<Response> {
   const videos = await getReadyToUploadVideos(1);
   if (videos.length === 0) {
-    return new Response("No pending videos", { status: 200 });
+    return new Response("No videos ready", { status: 200 });
   }
 
   for (const video of videos) {
@@ -26,13 +27,13 @@ export async function handleSchedule(): Promise<Response> {
 
       const uploader = PLATFORM_UPLOADERS[video.platform];
       if (!uploader) {
-        throw new Error(`No uploader for platform: ${video.platform}`);
+        throw new Error(`No uploader for ${video.platform}`);
       }
 
       const success = await uploader({ ...video, ...meta });
       await updateVideoStatus(video.id, success ? "uploaded" : "failed");
     } catch (err) {
-      console.error(`Processing failed for ${video.id}:`, err);
+      console.error(`Failed to process ${video.id}:`, err);
       await updateVideoStatus(video.id, "failed");
     }
   }
