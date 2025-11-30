@@ -61,7 +61,8 @@ async function getCurrentDailyCount(platform: string, channelId: string, dailyKe
   const res = await kv.get<number>(key);
   return res.value || 0;
 }
-
+// db/queue.ts — oxiriga qo'shing
+export { kv };
 // Statusni yangilash
 export async function updateVideoStatus(id: string, status: VideoRequest["status"], metadata?: Partial<VideoRequest>) {
   const key = [...QUEUE_PREFIX, id];
