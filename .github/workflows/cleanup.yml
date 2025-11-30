@@ -1,24 +1,40 @@
-name: Cloudinary Cleanup
+name: 🧹 Cloudinary Cleanup (10+ days old)
+
 on:
   schedule:
-    - cron: "0 0 * * *"  # Har kuni soat 00:00 UTC
-  workflow_dispatch:
+    - cron: "0 0 * * *"   # Har kuni soat 00:00 UTC
+  workflow_dispatch:      # Qo'lda ham ishlash mumkin
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete old videos
-        run: |
-          curl "https://api.cloudinary.com/v1_1/${{ secrets.CLOUDINARY_CLOUD_NAME }}/resources/video" \
-            -u "${{ secrets.CLOUDINARY_API_KEY }}:${{ secrets.CLOUDINARY_API_SECRET }}" \
-            -d "max_results=500" \
-            -d "tags=auto-shorts" \
-            -X GET \
-          | jq -r '.resources[] | select(.created_at | fromdateiso8601 < (now - 10*86400)) | .public_id' \
-          | xargs -I {} curl "https://api.cloudinary.com/v1_1/${{ secrets.CLOUDINARY_CLOUD_NAME }}/resources/video/upload/{}" \
-            -u "${{ secrets.CLOUDINARY_API_KEY }}:${{ secrets.CLOUDINARY_API_SECRET }}" \
-            -X DELETE
+      - name: 📥 Olish va o'chirish
         env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+        run: |
+          # Barcha "auto-shorts" tegli videolarni olish
+          response=$(curl -s "https://api.cloudinary.com/v1_1/$CLOUDINARY_CLOUD_NAME/resources/video" \
+            -u "$CLOUDINARY_API_KEY:$CLOUDINARY_API_SECRET" \
+            -d "tags=auto-shorts" \
+            -d "max_results=500")
+
+          # Har bir resursni tekshirish
+          echo "$response" | jq -r '.resources[] | "\(.public_id) \(.context.upload_date // empty)"' | while read public_id upload_date; do
+            if [[ -z "$upload_date" ]]; then
+              continue
+            fi
+
+            # upload_date: "2025-05-20T12:00:00.000Z"
+            upload_ts=$(date -d "$upload_date" +%s 2>/dev/null || echo 0)
+            now_ts=$(date +%s)
+            ten_days_sec=864000  # 10 kun = 10 * 24 * 60 * 60
+
+            if (( now_ts - upload_ts > ten_days_sec )); then
+              echo "🧹 O'chirilmoqda: $public_id (yuklangan: $upload_date)"
+              curl -s -X DELETE "https://api.cloudinary.com/v1_1/$CLOUDINARY_CLOUD_NAME/resources/video/upload/$public_id" \
+                -u "$CLOUDINARY_API_KEY:$CLOUDINARY_API_SECRET" > /dev/null
+            fi
+          done
