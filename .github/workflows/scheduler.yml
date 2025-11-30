@@ -1,0 +1,13 @@
+name: AI Shorts Scheduler
+on:
+  schedule:
+    - cron: "0 */2 * * *"  # Har 2 soatda UTC
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Deno Deploy
+        run: |
+          curl -X POST https://auto-shorts-system.deno.dev/run-schedule
