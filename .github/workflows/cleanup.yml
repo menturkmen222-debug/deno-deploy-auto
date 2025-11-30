@@ -1,0 +1,24 @@
+name: Cloudinary Cleanup
+on:
+  schedule:
+    - cron: "0 0 * * *"  # Har kuni soat 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old videos
+        run: |
+          curl "https://api.cloudinary.com/v1_1/${{ secrets.CLOUDINARY_CLOUD_NAME }}/resources/video" \
+            -u "${{ secrets.CLOUDINARY_API_KEY }}:${{ secrets.CLOUDINARY_API_SECRET }}" \
+            -d "max_results=500" \
+            -d "tags=auto-shorts" \
+            -X GET \
+          | jq -r '.resources[] | select(.created_at | fromdateiso8601 < (now - 10*86400)) | .public_id' \
+          | xargs -I {} curl "https://api.cloudinary.com/v1_1/${{ secrets.CLOUDINARY_CLOUD_NAME }}/resources/video/upload/{}" \
+            -u "${{ secrets.CLOUDINARY_API_KEY }}:${{ secrets.CLOUDINARY_API_SECRET }}" \
+            -X DELETE
+        env:
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
