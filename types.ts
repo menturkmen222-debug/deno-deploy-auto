@@ -1,6 +1,7 @@
 export type Platform = "youtube" | "tiktok" | "instagram" | "facebook";
 export type ChannelId = "channel_1" | "channel_2" | "channel_3" | "channel_4" | "channel_5";
 
+// types.ts
 export interface VideoRequest {
   id: string;
   videoUrl: string;
@@ -8,6 +9,7 @@ export interface VideoRequest {
   platform: Platform;
   channelId: ChannelId;
   status: "pending" | "processing" | "uploaded" | "failed";
+  scheduledAt: Date; // ⬅️ Yangi: qachon yuklanishi kerak
   title?: string;
   description?: string;
   tags?: string[];
