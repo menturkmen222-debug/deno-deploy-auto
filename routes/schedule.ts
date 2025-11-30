@@ -1,4 +1,4 @@
-import { getPendingVideos, updateVideoStatus } from "../db/queue.ts";
+import { getReadyToUploadVideos } from "../db/queue.ts";
 import { generateMetadata } from "../services/groq.ts";
 import { uploadToYouTube } from "../services/platforms/youtube.ts";
 import { uploadToTikTok } from "../services/platforms/tiktok.ts";
@@ -13,7 +13,7 @@ const PLATFORM_UPLOADERS: Record<string, Function> = {
 };
 
 export async function handleSchedule(): Promise<Response> {
-  const videos = await getPendingVideos(1);
+  const videos = await getReadyToUploadVideos(1);
   if (videos.length === 0) {
     return new Response("No pending videos", { status: 200 });
   }
