@@ -8,6 +8,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return await handleUpload(req);
   }
 
+  // main.ts — yangi qator
+if (url.pathname === "/api/stats") {
+  return await handleStats(req);
+}
+
   if (url.pathname === "/run-schedule" && req.method === "POST") {
     return await handleSchedule(req);
   }
