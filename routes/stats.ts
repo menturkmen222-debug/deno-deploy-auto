@@ -1,15 +1,16 @@
-import { kv } from "../db/queue.ts"; // kv ni alohida eksport qiling
+// routes/stats.ts
+import { kv } from "../db/queue.ts";
+import { VideoRequest } from "../types.ts";
 
 export async function handleStats(): Promise<Response> {
   const stats: Record<string, any> = {};
-  const entries = kv.list({ prefix: ["video_queue"] });
+  const entries = kv.list<VideoRequest>({ prefix: ["video_queue"] });
 
   for await (const { value } of entries) {
-    const key = `${value.platform}-${value.channelId}`;
+    const key = value.channelName;
     if (!stats[key]) {
       stats[key] = {
-        platform: value.platform,
-        channelId: value.channelId,
+        channelName: value.channelName,
         pending: 0,
         uploaded: 0,
         failed: 0,
@@ -20,7 +21,6 @@ export async function handleStats(): Promise<Response> {
     if (value.status === "uploaded") stats[key].uploaded++;
     if (value.status === "failed") stats[key].failed++;
 
-    // Bugun yuklanganlar
     const today = new Date().toISOString().split("T")[0];
     const createdAt = new Date(value.createdAt).toISOString().split("T")[0];
     if (createdAt === today && value.status === "uploaded") {
