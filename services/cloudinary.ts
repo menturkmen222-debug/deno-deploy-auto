@@ -1,8 +1,5 @@
 // services/cloudinary.ts
 
-/**
- * Faylni Cloudinaryga yuklash
- */
 export async function uploadToCloudinary(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
@@ -24,15 +21,12 @@ export async function uploadToCloudinary(file: File): Promise<string> {
   }
 
   const data = await res.json();
-  return data.secure_url;
+  return data.secure_url.trim(); // bo'sh joyni olib tashlash
 }
 
-/**
- * Video URLni Cloudinaryga yuklash (masalan: https://example.com/video.mp4)
- */
 export async function uploadUrlToCloudinary(videoUrl: string): Promise<string> {
   const formData = new FormData();
-  formData.append("file", videoUrl); // Cloudinary to'g'ridan-to'g'ri URL qabul qiladi
+  formData.append("file", videoUrl);
   formData.append("upload_preset", Deno.env.get("CLOUDINARY_UPLOAD_PRESET")!);
   formData.append("context", `upload_date=${new Date().toISOString()}`);
   formData.append("tags", "auto-shorts");
@@ -48,5 +42,5 @@ export async function uploadUrlToCloudinary(videoUrl: string): Promise<string> {
   }
 
   const data = await res.json();
-  return data.secure_url;
+  return data.secure_url.trim();
 }
