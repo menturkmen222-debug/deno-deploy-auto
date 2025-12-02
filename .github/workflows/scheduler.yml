@@ -10,4 +10,4 @@ jobs:
     steps:
       - name: Trigger Deno Deploy
         run: |
-          curl -X POST https://tm.auto.deno.dev/run-schedule
+          curl -X POST https://autotm.deno.dev/run-schedule
