@@ -1,14 +1,8 @@
 // db/queue.ts
-
 import { VideoRequest } from "../types.ts";
 
-// Deno KV — serverless, bepul, Deno Deployda avtomatik ishlaydi
 const kv = await Deno.openKv();
-
-// Asosiy navbat kaliti
 const QUEUE_PREFIX = ["video_queue"];
-
-// Kunlik cheklov kaliti: ["daily_count", "tech_buni", "youtube", "2025-12-01"]
 const DAILY_COUNTER_PREFIX = ["daily_count"];
 
 /**
@@ -30,8 +24,12 @@ export async function enqueueVideo(
 
 /**
  * Sana uchun "YYYY-MM-DD" formatidagi kalit
+ * Agar sana undefined bo'lsa — bugun qaytariladi
  */
-function getDailyKey(date: Date): string {
+function getDailyKey(date: Date | undefined): string {
+  if (!date) {
+    return new Date().toISOString().split("T")[0];
+  }
   return date.toISOString().split("T")[0];
 }
 
@@ -63,7 +61,6 @@ async function incrementDailyCount(
 
 /**
  * Faqat hozirgi vaqtga yetib kelgan, kunlik limit (5)dan oshmaydigan videolarni olish
- * Har bir so'rov bitta platformaga tegishli
  */
 export async function getReadyToUploadVideos(limit = 1): Promise<VideoRequest[]> {
   const now = new Date();
@@ -74,7 +71,13 @@ export async function getReadyToUploadVideos(limit = 1): Promise<VideoRequest[]>
     // Faqat "pending" holatidagi videolar
     if (value.status !== "pending") continue;
 
-    // Faqat hozirgi vaqtdan oldin rejalashtirilganlar
+    // Agar scheduledAt yo'q bo'lsa — e'tiborsiz qoldir
+    if (!value.scheduledAt) {
+      console.warn("⚠️ `scheduledAt` yo'q:", value.id);
+      continue;
+    }
+
+    // Faqat hozirgi vaqtdan o'tganlar
     if (value.scheduledAt > now) continue;
 
     // Kunlik cheklovni tekshirish
@@ -98,7 +101,7 @@ export async function getReadyToUploadVideos(limit = 1): Promise<VideoRequest[]>
 }
 
 /**
- * Video holatini yangilash (masalan: "uploaded")
+ * Video holatini yangilash
  */
 export async function updateVideoStatus(
   id: string,
@@ -107,12 +110,15 @@ export async function updateVideoStatus(
 ): Promise<void> {
   const key = [...QUEUE_PREFIX, id];
   const res = await kv.get<VideoRequest>(key);
-  if (!res.value) throw new Error(`Video ${id} topilmadi`);
+  if (!res.value) {
+    console.warn("⚠️ Video topilmadi:", id);
+    return;
+  }
   const updated = { ...res.value, status, ...metadata };
   await kv.set(key, updated);
 }
 
 /**
- * Deno KV instansini boshqa modullarga eksport qilish (masalan: stats uchun)
+ * Deno KV instansini boshqa modullarga eksport qilish (masalan: stats)
  */
 export { kv };
