@@ -3,82 +3,85 @@ import { VideoRequest } from "../../types.ts";
 
 const YOUTUBE_TOKENS: Record<string, string> = {
   tech_buni: Deno.env.get("TECH_BUNI_YT_TOKEN")!,
-  cooking_buni: Deno.env.get("COOKING_BUNI_YT_TOKEN")!,
-  travel_buni: Deno.env.get("TRAVEL_BUNI_YT_TOKEN")!,
-  gaming_buni: Deno.env.get("GAMING_BUNI_YT_TOKEN")!,
-  life_buni: Deno.env.get("LIFE_BUNI_YT_TOKEN")!,
+  // ... boshqa kanallar
 };
 
-export async function uploadToYouTube(video: VideoRequest): Promise<boolean> {
-  const token = YOUTUBE_TOKENS[video.channelName];
-  if (!token) {
-    throw new Error(`YouTube token not found for ${video.channelName}`);
+// Yangi: Refresh tokenni access tokenga aylantirish
+async function getAccessToken(refreshToken: string): Promise<string> {
+  const client_id = "209564473028-n5s0htgj8ehkiot6if4uju21rss4mnbf.apps.googleusercontent.com";
+  const client_secret = "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";
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id,
+      client_secret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Access token olishda xato: ${res.status} – ${err}`);
   }
+
+  const data = await res.json();
+  return data.access_token;
+}
+
+export async function uploadToYouTube(video: VideoRequest): Promise<boolean> {
+  const refreshToken = YOUTUBE_TOKENS[video.channelName];
+  if (!refreshToken) throw new Error(`YouTube token not found for ${video.channelName}`);
+
+  // ✅ Yangi: Refresh tokenni almashish
+  const accessToken = await getAccessToken(refreshToken);
+
+  const videoRes = await fetch(video.videoUrl);
+  const videoArray = new Uint8Array(await videoRes.arrayBuffer());
 
   const metadata = {
     snippet: {
-      title: video.title || "Auto-Generated Short",
+      title: video.title || "Auto Short",
       description: video.description || video.prompt,
       tags: video.tags || ["AI", "Shorts"],
       categoryId: "22",
     },
     status: {
       privacyStatus: "private",
-      selfDeclaredMadeForKids: false,
-    },
-    recordingDetails: {
-      recordingDate: new Date().toISOString(),
     },
   };
 
-  const videoRes = await fetch(video.videoUrl);
-  if (!videoRes.ok) {
-    throw new Error(`Failed to fetch video from Cloudinary: ${videoRes.status}`);
-  }
-  const videoBytes = new Uint8Array(await videoRes.arrayBuffer());
+  const boundary = "----YouTubeBoundary" + crypto.randomUUID().slice(0, 8);
+  const body = buildMultipartPayload(metadata, videoArray, boundary);
 
-  // Random boundary yaratish
-  const boundary = "----YouTubeUploadBoundary" + crypto.randomUUID().slice(0, 8);
-
-  const body = buildMultipartPayload(metadata, videoBytes, boundary);
-  const url = "https://www.googleapis.com/upload/youtube/v3/videos" +
-              "?uploadType=multipart" +
-              "&part=snippet,status,recordingDetails"; // ✅ BEKAS JO'SIZ
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": `multipart/related; boundary=${boundary}`,
-    },
-    body,
-  });
+  const res = await fetch(
+    "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`, // ✅ access_token
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    }
+  );
 
   if (!res.ok) {
-    const errorText = await res.text();
-    console.error("YouTube API xato:", errorText);
-    throw new Error(`YouTube yuklamadi: ${res.status} ${res.statusText}`);
+    const err = await res.text();
+    console.error("YouTube API xato:", err);
+    throw new Error(`YouTube yuklamadi: ${res.status}`);
   }
 
-  console.log(`[YouTube] ✅ ${video.channelName} — "${video.title}" yuklandi`);
+  console.log(`✅ YouTube: ${video.channelName} — "${video.title}"`);
   return true;
 }
 
-function buildMultipartPayload(metadata: any, videoBytes: Uint8Array, boundary: string): string {
+function buildMultipartPayload(meta any, videoBytes: Uint8Array, boundary: string): string {
   let payload = "";
-
-  // Metadata qismi
-  payload += `--${boundary}\r\n`;
-  payload += "Content-Type: application/json; charset=UTF-8\r\n\r\n";
-  payload += JSON.stringify(metadata) + "\r\n";
-
-  // Video qismi
-  payload += `--${boundary}\r\n`;
-  payload += "Content-Type: video/mp4\r\n\r\n";
-  payload += new TextDecoder().decode(videoBytes) + "\r\n";
-
-  // Yakunlovchi chegaralar
+  payload += `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}\r\n`;
+  payload += `--${boundary}\r\nContent-Type: video/mp4\r\n\r\n${new TextDecoder().decode(videoBytes)}\r\n`;
   payload += `--${boundary}--\r\n`;
-
   return payload;
 }
