@@ -78,9 +78,9 @@ export async function uploadToYouTube(video: VideoRequest): Promise<boolean> {
   return true;
 }
 
-function buildMultipartPayload(meta any, videoBytes: Uint8Array, boundary: string): string {
+function buildMultipart(payload: any, videoBytes: Uint8Array, boundary: string): string {
   let payload = "";
-  payload += `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}\r\n`;
+  payload += `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(payload)}\r\n`;
   payload += `--${boundary}\r\nContent-Type: video/mp4\r\n\r\n${new TextDecoder().decode(videoBytes)}\r\n`;
   payload += `--${boundary}--\r\n`;
   return payload;
