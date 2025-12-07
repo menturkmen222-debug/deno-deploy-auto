@@ -3,7 +3,7 @@ import { VideoRequest } from "../../types.ts";
 
 const YOUTUBE_TOKENS: Record<string, string> = {
   tech_buni: Deno.env.get("TECH_BUNI_YT_TOKEN")!,
-  // ... boshqa kanallar
+  // ... bosh qa kanallar
 };
 
 // Yangi: Refresh tokenni access tokenga aylantirish
