@@ -16,8 +16,12 @@ export async function generateMetadata(prompt: string): Promise<{ title: string;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
+        // ✅ Yangi model (eski `llama3-8b-8192` dekomission qilingan)
+        model: "llama-3.1-8b-instant",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt }
+        ],
         temperature: 0.7,
         max_tokens: 300,
       }),
@@ -32,6 +36,7 @@ export async function generateMetadata(prompt: string): Promise<{ title: string;
     const json = await res.json();
     let content = json.choices?.[0]?.message?.content?.trim() || "{}";
 
+    // JSONni tozalash
     if (content.startsWith("```")) {
       content = content.split("```")[1]?.replace("json", "")?.trim() || "{}";
     }
