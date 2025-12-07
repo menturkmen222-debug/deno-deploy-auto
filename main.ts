@@ -1,8 +1,9 @@
-// main.ts
+// main.ts — TO'G'RI VERSIYA
 import { handleUpload } from "./routes/upload.ts";
-import { handleSchedule } from "./routes/schedule.ts";
-import { handleStats } from "./routes/stats.ts";
+import { handleSchedule } from "./routes/schedule.ts"; // ✅
+import { handleStats } from "./routes/stats.ts";       // ✅
 
+// CORS sozlamalari
 function handleCORS(): Response {
   return new Response(null, {
     headers: {
@@ -27,14 +28,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return res;
     }
 
+    // ✅ TO'G'RI: /run-schedule → handleSchedule
     if (url.pathname === "/run-schedule" && req.method === "POST") {
       const res = await handleSchedule(req);
       res.headers.set("Access-Control-Allow-Origin", "*");
       return res;
     }
 
+    // ✅ TO'G'RI: /api/stats → handleStats
     if (url.pathname === "/api/stats") {
-      const res = await handleStats();
+      const res = await handleStats(req);
       res.headers.set("Access-Control-Allow-Origin", "*");
       return res;
     }
