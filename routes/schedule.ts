@@ -2,15 +2,10 @@
 import { getReadyToUploadVideos, updateVideoStatus } from "../db/queue.ts";
 import { generateMetadata } from "../services/groq.ts";
 import { uploadToYouTube } from "../services/platforms/youtube.ts";
-import { uploadToTikTok } from "../services/platforms/tiktok.ts";
-import { uploadToInstagram } from "../services/platforms/instagram.ts";
-import { uploadToFacebook } from "../services/platforms/facebook.ts";
 
 const PLATFORM_UPLOADERS: Record<string, Function> = {
   youtube: uploadToYouTube,
-  tiktok: uploadToTikTok,
-  instagram: uploadToInstagram,
-  facebook: uploadToFacebook,
+  // tiktok, instagram, facebook — o'chirildi
 };
 
 export async function handleSchedule(): Promise<Response> {
@@ -20,23 +15,21 @@ export async function handleSchedule(): Promise<Response> {
   }
 
   for (const video of videos) {
+    // Faqat YouTube uchun
+    if (video.platform !== "youtube") continue;
+
     try {
       await updateVideoStatus(video.id, "processing");
       const meta = await generateMetadata(video.prompt);
       await updateVideoStatus(video.id, "processing", meta);
 
-      const uploader = PLATFORM_UPLOADERS[video.platform];
-      if (!uploader) {
-        throw new Error(`No uploader for ${video.platform}`);
-      }
-
-      const success = await uploader({ ...video, ...meta });
+      const success = await uploadToYouTube({ ...video, ...meta });
       await updateVideoStatus(video.id, success ? "uploaded" : "failed");
     } catch (err) {
-      console.error(`Failed to process ${video.id}:`, err);
+      console.error(`YouTube yuklamadi:`, err);
       await updateVideoStatus(video.id, "failed");
     }
   }
 
-  return new Response(`Processed ${videos.length} video(s)`, { status: 200 });
+  return new Response(`Processed YouTube video(s)`, { status: 200 });
 }
