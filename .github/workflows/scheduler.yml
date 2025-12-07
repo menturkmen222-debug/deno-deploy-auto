@@ -1,13 +1,14 @@
+# .github/workflows/scheduler.yml
 name: AI Shorts Scheduler
 on:
   schedule:
-    - cron: "0 */2 * * *"  # Har 2 soatda UTC
-  workflow_dispatch:
+    - cron: "0 */2 * * *"  # Har 2 soatda (UTC)
+  workflow_dispatch:       # Qo'lda ishga tushirish imkoni
 
 jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Deno Deploy
+      - name: Run Deno Deploy Scheduler
         run: |
           curl -X POST https://autotm.deno.dev/run-schedule
