@@ -1,124 +1,64 @@
 // db/queue.ts
+import type { Env } from "../index.ts";
 import { VideoRequest } from "../types.ts";
 
-const kv = await Deno.openKv();
-const QUEUE_PREFIX = ["video_queue"];
-const DAILY_COUNTER_PREFIX = ["daily_count"];
+const QUEUE_PREFIX = "video_queue";
+const DAILY_COUNTER_PREFIX = "daily_count";
 
-/**
- * Yangi video so'rovini navbatga qo'shish
- */
-export async function enqueueVideo(
-  video: Omit<VideoRequest, "id" | "status" | "createdAt">
-): Promise<string> {
+export async function enqueueVideo(env: Env, video: Omit<VideoRequest, "id" | "status" | "createdAt">): Promise<string> {
   const id = crypto.randomUUID();
-  const request: VideoRequest = {
-    id,
-    ...video,
-    status: "pending",
-    createdAt: new Date(),
-  };
-  await kv.set([...QUEUE_PREFIX, id], request);
+  const request: VideoRequest = { ...video, id, status: "pending", createdAt: new Date() };
+  await env.VIDEO_QUEUE.put(`${QUEUE_PREFIX}:${id}`, JSON.stringify(request));
   return id;
 }
 
-/**
- * Sana uchun "YYYY-MM-DD" formatidagi kalit
- * Agar sana undefined bo'lsa — bugun qaytariladi
- */
 function getDailyKey(date: Date | undefined): string {
-  if (!date) {
-    return new Date().toISOString().split("T")[0];
-  }
+  if (!date) return new Date().toISOString().split("T")[0];
   return date.toISOString().split("T")[0];
 }
 
-/**
- * Berilgan kanal + platforma uchun bugun nechta video yuklanganini olish
- */
-async function getCurrentDailyCount(
-  channelName: string,
-  platform: string,
-  dailyKey: string
-): Promise<number> {
-  const key = [...DAILY_COUNTER_PREFIX, channelName, platform, dailyKey];
-  const res = await kv.get<number>(key);
-  return res.value || 0;
+async function getCurrentDailyCount(env: Env, channelName: string, platform: string, dailyKey: string): Promise<number> {
+  const key = `${DAILY_COUNTER_PREFIX}:${channelName}:${platform}:${dailyKey}`;
+  const value = await env.VIDEO_QUEUE.get(key);
+  return value ? parseInt(value) : 0;
 }
 
-/**
- * Kunlik hisoblagichni bittaga oshirish
- */
-async function incrementDailyCount(
-  channelName: string,
-  platform: string,
-  dailyKey: string
-): Promise<void> {
-  const key = [...DAILY_COUNTER_PREFIX, channelName, platform, dailyKey];
-  const current = await getCurrentDailyCount(channelName, platform, dailyKey);
-  await kv.set(key, current + 1);
+async function incrementDailyCount(env: Env, channelName: string, platform: string, dailyKey: string): Promise<void> {
+  const key = `${DAILY_COUNTER_PREFIX}:${channelName}:${platform}:${dailyKey}`;
+  const current = await getCurrentDailyCount(env, channelName, platform, dailyKey);
+  await env.VIDEO_QUEUE.put(key, (current + 1).toString());
 }
 
-/**
- * Faqat hozirgi vaqtga yetib kelgan, kunlik limit (5)dan oshmaydigan videolarni olish
- */
-export async function getReadyToUploadVideos(limit = 1): Promise<VideoRequest[]> {
+export async function getReadyToUploadVideos(env: Env, limit = 1): Promise<VideoRequest[]> {
   const now = new Date();
-  const entries = kv.list<VideoRequest>({ prefix: QUEUE_PREFIX });
+  const keys = await env.VIDEO_QUEUE.list({ prefix: QUEUE_PREFIX });
   const ready: VideoRequest[] = [];
 
-  for await (const { value } of entries) {
-    // Faqat "pending" holatidagi videolar
-    if (value.status !== "pending") continue;
+  for (const key of keys.keys) {
+    const value = await env.VIDEO_QUEUE.get(key.name);
+    if (!value) continue;
+    const video = JSON.parse(value) as VideoRequest;
+    if (video.status !== "pending") continue;
+    if (!video.scheduledAt) continue;
+    if (new Date(video.scheduledAt) > now) continue;
 
-    // Agar scheduledAt yo'q bo'lsa — e'tiborsiz qoldir
-    if (!value.scheduledAt) {
-      console.warn("⚠️ `scheduledAt` yo'q:", value.id);
-      continue;
-    }
+    const dailyKey = getDailyKey(new Date(video.scheduledAt));
+    const currentCount = await getCurrentDailyCount(env, video.channelName, video.platform, dailyKey);
+    if (currentCount >= 5) continue;
 
-    // Faqat hozirgi vaqtdan o'tganlar
-    if (value.scheduledAt > now) continue;
-
-    // Kunlik cheklovni tekshirish
-    const dailyKey = getDailyKey(value.scheduledAt);
-    const currentCount = await getCurrentDailyCount(
-      value.channelName,
-      value.platform,
-      dailyKey
-    );
-
-    if (currentCount >= 5) continue; // Kunlik limit
-
-    // Hisoblagichni oshirish
-    await incrementDailyCount(value.channelName, value.platform, dailyKey);
-
-    ready.push(value);
+    await incrementDailyCount(env, video.channelName, video.platform, dailyKey);
+    ready.push(video);
     if (ready.length >= limit) break;
   }
 
   return ready;
 }
 
-/**
- * Video holatini yangilash
- */
-export async function updateVideoStatus(
-  id: string,
-  status: VideoRequest["status"],
-  metadata?: Partial<VideoRequest>
-): Promise<void> {
-  const key = [...QUEUE_PREFIX, id];
-  const res = await kv.get<VideoRequest>(key);
-  if (!res.value) {
-    console.warn("⚠️ Video topilmadi:", id);
-    return;
-  }
-  const updated = { ...res.value, status, ...metadata };
-  await kv.set(key, updated);
+export async function updateVideoStatus(env: Env, id: string, status: VideoRequest["status"], metadata?: Partial<VideoRequest>): Promise<void> {
+  const keyName = `${QUEUE_PREFIX}:${id}`;
+  const value = await env.VIDEO_QUEUE.get(keyName);
+  if (!value) return;
+  const video = JSON.parse(value) as VideoRequest;
+  const updated = { ...video, status, ...metadata };
+  await env.VIDEO_QUEUE.put(keyName, JSON.stringify(updated));
 }
-
-/**
- * Deno KV instansini boshqa modullarga eksport qilish (masalan: stats)
- */
-export { kv };
