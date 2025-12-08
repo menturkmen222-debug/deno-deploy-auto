@@ -12,7 +12,7 @@ export async function handleSchedule(): Promise<Response> {
   const videos = await getReadyToUploadVideos(1);
   if (videos.length === 0) {
     return new Response("No videos ready", { status: 200 });
-  }
+
 
   for (const video of videos) {
     // Faqat YouTube uchun
@@ -23,7 +23,8 @@ export async function handleSchedule(): Promise<Response> {
       const meta = await generateMetadata(video.prompt);
       await updateVideoStatus(video.id, "processing", meta);
 
-      const success = await uploadToYouTube({ ...video, ...meta });
+      // ✅ Yangi:
+const success = await uploadToYouTube(env, { ...video, ...meta });
       await updateVideoStatus(video.id, success ? "uploaded" : "failed");
     } catch (err) {
       console.error(`YouTube yuklamadi:`, err);
