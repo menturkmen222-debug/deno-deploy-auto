@@ -5,7 +5,7 @@ compatibility_date = "2024-12-08"
 # KV
 [[kv_namespaces]]
 binding = "VIDEO_QUEUE"
-id = ""  # keyin to'ldirasiz
+id = "58d50a7063994480abcc1ec0705cbd28"  # keyin to'ldirasiz
 
 # Cron
 [[triggers]]
