@@ -1,20 +1,20 @@
 name = "auto-shorts-cf"
-main = "src/index.ts"
+main = "index.ts"               # ✅ Ildizdagi index.ts
 compatibility_date = "2024-12-08"
 
 # KV
 [[kv_namespaces]]
 binding = "VIDEO_QUEUE"
-id = "your_kv_namespace_id"
+id = ""  # keyin to'ldirasiz
 
-# Cron (har 2 soatda)
+# Cron
 [[triggers]]
 cron = "0 */2 * * *"
 
-# Environment Variables (Deno Deploydagi kabi)
+# Environment Variables
 [vars]
 CLOUDINARY_CLOUD_NAME = "dazj3ppjl"
-CLOUDINARY_UPLOAD_PRESET = "auto_shorts"
-GROQ_API_KEY = "gsk_xxx"
-TECH_BUNY_YT_TOKEN = "1//xxx"
-# ... barcha tokenlarni qo'shing
+CLOUDINARY_UPLOAD_PRESET = "auto_shorts_preset"
+GROQ_API_KEY = "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"
+TECH_BUNI_YT_TOKEN = "1//04UeU7EyoCu8CCgYIARAAGAQSNWF-L9Ir00Mr1FNIfzry4tRcLW_43TfAMPRHLgwbkCyDfyaZ_oLMmv97aSctVA epQbWHt44m-jw"
+# ... barcha tokenlar
