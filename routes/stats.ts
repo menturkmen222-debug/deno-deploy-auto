@@ -1,30 +1,38 @@
 // routes/stats.ts
-import { kv } from "../db/queue.ts";
+import type { Env } from "../index.ts";
 import { VideoRequest } from "../types.ts";
 
-export async function handleStats(): Promise<Response> {
+export async function handleStats(request: Request, env: Env): Promise<Response> {
   const stats: Record<string, any> = {};
-  const entries = kv.list<VideoRequest>({ prefix: ["video_queue"] });
-
-  for await (const { value } of entries) {
-    const key = value.channelName;
-    if (!stats[key]) {
-      stats[key] = {
-        channelName: value.channelName,
+  
+  // KVdan barcha kalitlarni olish
+  const keys = await env.VIDEO_QUEUE.list({ prefix: "video_queue:" });
+  
+  for (const key of keys.keys) {
+    const value = await env.VIDEO_QUEUE.get(key.name);
+    if (!value) continue;
+    
+    const video = JSON.parse(value) as VideoRequest;
+    const channelName = video.channelName;
+    
+    if (!stats[channelName]) {
+      stats[channelName] = {
+        channelName,
         pending: 0,
         uploaded: 0,
         failed: 0,
         todayUploaded: 0,
       };
     }
-    if (value.status === "pending") stats[key].pending++;
-    if (value.status === "uploaded") stats[key].uploaded++;
-    if (value.status === "failed") stats[key].failed++;
-
+    
+    if (video.status === "pending") stats[channelName].pending++;
+    if (video.status === "uploaded") stats[channelName].uploaded++;
+    if (video.status === "failed") stats[channelName].failed++;
+    
     const today = new Date().toISOString().split("T")[0];
-    const createdAt = new Date(value.createdAt).toISOString().split("T")[0];
-    if (createdAt === today && value.status === "uploaded") {
-      stats[key].todayUploaded++;
+    const createdAt = new Date(video.createdAt).toISOString().split("T")[0];
+    if (createdAt === today && video.status === "uploaded") {
+      stats[channelName].todayUploaded++;
     }
   }
 
