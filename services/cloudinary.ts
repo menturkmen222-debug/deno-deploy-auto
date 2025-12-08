@@ -1,18 +1,16 @@
 // services/cloudinary.ts
+import type { Env } from "../index.ts";
 
-export async function uploadToCloudinary(file: File): Promise<string> {
+export async function uploadToCloudinary(env: Env, file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("upload_preset", Deno.env.get("CLOUDINARY_UPLOAD_PRESET")!);
+  formData.append("upload_preset", env.CLOUDINARY_UPLOAD_PRESET);
   formData.append("context", `upload_date=${new Date().toISOString()}`);
   formData.append("tags", "auto-shorts");
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${Deno.env.get("CLOUDINARY_CLOUD_NAME")}/video/upload`,
-    {
-      method: "POST",
-      body: formData,
-    }
+    `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/video/upload`,
+    { method: "POST", body: formData }
   );
 
   if (!res.ok) {
@@ -21,18 +19,18 @@ export async function uploadToCloudinary(file: File): Promise<string> {
   }
 
   const data = await res.json();
-  return data.secure_url.trim(); // bo'sh joyni olib tashlash
+  return data.secure_url.trim();
 }
 
-export async function uploadUrlToCloudinary(videoUrl: string): Promise<string> {
+export async function uploadUrlToCloudinary(env: Env, videoUrl: string): Promise<string> {
   const formData = new FormData();
   formData.append("file", videoUrl);
-  formData.append("upload_preset", Deno.env.get("CLOUDINARY_UPLOAD_PRESET")!);
+  formData.append("upload_preset", env.CLOUDINARY_UPLOAD_PRESET);
   formData.append("context", `upload_date=${new Date().toISOString()}`);
   formData.append("tags", "auto-shorts");
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${Deno.env.get("CLOUDINARY_CLOUD_NAME")}/video/upload`,
+    `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/video/upload`,
     { method: "POST", body: formData }
   );
 
