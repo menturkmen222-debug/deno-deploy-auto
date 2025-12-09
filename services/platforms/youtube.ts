@@ -2,9 +2,7 @@
 import type { Env } from "../../index.ts";
 import { VideoRequest } from "../../types.ts";
 
-// ✅ Cloudflare Workersda tokenni `env` orqali olish
 export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<boolean> {
-  // ✅ To'g'ri: env.TECH_BUNI_YT_TOKEN
   const refreshToken = env[`${video.channelName.toUpperCase()}_YT_TOKEN` as keyof Env] as string;
   if (!refreshToken) {
     throw new Error(`YouTube token not found for ${video.channelName}`);
@@ -13,7 +11,7 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
   const client_id = "209564473028-n5s0htgj8ehkiot6if4uju21rss4mnbf.apps.googleusercontent.com";
   const client_secret = "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";
 
-  // Access token olish
+  // ✅ TO'G'RI: BO'SH JOYSIZ
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -32,7 +30,6 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
 
   const { access_token } = await tokenRes.json();
 
-  // Video yuklash
   const videoRes = await fetch(video.videoUrl);
   const videoBytes = new Uint8Array(await videoRes.arrayBuffer());
 
@@ -49,6 +46,7 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
   const boundary = "----YouTubeBoundary" + crypto.randomUUID().substring(0, 8);
   const body = buildMultipartPayload(metadata, videoBytes, boundary);
 
+  // ✅ TO'G'RI: BO'SH JOYSIZ
   const uploadRes = await fetch(
     "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status",
     {
