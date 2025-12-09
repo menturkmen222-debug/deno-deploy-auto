@@ -14,8 +14,8 @@ triggers = [
 
 # Environment Variables
 [vars]
-CLOUDINARY_CLOUD_NAME = "dazj3ppjl"
-CLOUDINARY_UPLOAD_PRESET = "auto_shorts_preset"
+CLOUDINARY_CLOUD_NAME = "daq8wfgnt"
+CLOUDINARY_UPLOAD_PRESET = "ml_default"
 GROQ_API_KEY = "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"
 TECH_BUNI_YT_TOKEN = "1//04UeU7EyoCu8CCgYIARAAGAQSNWF-L9Ir00Mr1FNIfzry4tRcLW_43TfAMPRHLgwbkCyDfyaZ_oLMmv97aSctVAepQbWHt44m-jw"
 # ... barcha tokenlar
