@@ -1,8 +1,10 @@
 // services/groq.ts
-export async function generateMetadata(prompt: string): Promise<{ title: string; description: string; tags: string[] }> {
-  const apiKey = Deno.env.get("GROQ_API_KEY");
+import type { Env } from "../index.ts";
+
+export async function generateMetadata(env: Env, prompt: string): Promise<{ title: string; description: string; tags: string[] }> {
+  const apiKey = env.GROQ_API_KEY;
   if (!apiKey) {
-    console.warn("⚠️ GROQ_API_KEY muhit o'zgaruvchisi yo'q");
+    console.warn("⚠️ GROQ_API_KEY muhit o'zgaruvchisi mavjud emas");
     return fallbackMetadata(prompt);
   }
 
@@ -16,8 +18,7 @@ export async function generateMetadata(prompt: string): Promise<{ title: string;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        // ✅ Yangi model (eski `llama3-8b-8192` dekomission qilingan)
-        model: "llama-3.1-8b-instant",
+        model: "llama-3.1-8b-instant", // ✅ Yangi model (eski `llama3-8b-8192` dekomission qilingan)
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt }
@@ -36,7 +37,7 @@ export async function generateMetadata(prompt: string): Promise<{ title: string;
     const json = await res.json();
     let content = json.choices?.[0]?.message?.content?.trim() || "{}";
 
-    // JSONni tozalash
+    // Agar AI JSONni ```json ... ``` ichiga qo'ygan bo'lsa, tozalash
     if (content.startsWith("```")) {
       content = content.split("```")[1]?.replace("json", "")?.trim() || "{}";
     }
