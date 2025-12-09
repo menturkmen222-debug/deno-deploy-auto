@@ -9,7 +9,7 @@ export async function uploadToCloudinary(env: Env, file: File): Promise<string> 
   formData.append("tags", "auto-shorts");
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/video/upload`,
+    `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/video/upload`, // ✅ Bo'sh jo'siz
     { method: "POST", body: formData }
   );
 
@@ -30,7 +30,7 @@ export async function uploadUrlToCloudinary(env: Env, videoUrl: string): Promise
   formData.append("tags", "auto-shorts");
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/video/upload`,
+    `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/video/upload`, // ✅ Bo'sh jo'siz
     { method: "POST", body: formData }
   );
 
