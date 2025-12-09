@@ -1,10 +1,11 @@
 // routes/upload.ts
+import type { Env } from "../index.ts";
 import { uploadToCloudinary, uploadUrlToCloudinary } from "../services/cloudinary.ts";
 import { enqueueVideo } from "../db/queue.ts";
 import { ChannelName, Platform } from "../types.ts";
 import { getScheduledSlotsForDate, US_OPTIMAL_HOURS } from "../utils/time.ts";
 
-export async function handleUpload(req: Request): Promise<Response> {
+export async function handleUpload(req: Request, env: Env): Promise<Response> {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -30,7 +31,6 @@ export async function handleUpload(req: Request): Promise<Response> {
     return new Response("Prompt va kanal nomi majburiy", { status: 400 });
   }
 
-  // Fayl yoki URL — xavfsiz tekshirish
   const hasVideoFile = videoFile instanceof File && videoFile.name;
   const hasValidUrl = !!videoUrl && isValidUrl(videoUrl);
 
@@ -38,7 +38,6 @@ export async function handleUpload(req: Request): Promise<Response> {
     return new Response("Video fayl yoki to'g'ri URL kerak", { status: 400 });
   }
 
-  // Fayl hajmi cheklovi: Deno Deploy 10 MB
   if (hasVideoFile) {
     const file = videoFile as File;
     if (file.size > 10 * 1024 * 1024) {
@@ -46,7 +45,6 @@ export async function handleUpload(req: Request): Promise<Response> {
     }
   }
 
-  // AQSH soatiga mos scheduledAt
   let scheduledAt: Date;
   const scheduledAtStr = formData.get("scheduledAt")?.toString();
 
@@ -55,14 +53,12 @@ export async function handleUpload(req: Request): Promise<Response> {
     if (isNaN(scheduledAt.getTime())) {
       return new Response("Invalid scheduledAt format", { status: 400 });
     }
-
     const now = new Date();
     const maxFuture = new Date(now);
     maxFuture.setDate(maxFuture.getDate() + 10);
     if (scheduledAt > maxFuture) {
       return new Response("scheduledAt must be within 10 days", { status: 400 });
     }
-
     const utcHours = scheduledAt.getUTCHours();
     const estHour = (utcHours - 5 + 24) % 24;
     const closest = US_OPTIMAL_HOURS.reduce((prev, curr) =>
@@ -88,16 +84,16 @@ export async function handleUpload(req: Request): Promise<Response> {
 
     if (hasVideoFile) {
       const file = videoFile as File;
-      cloudinaryUrl = await uploadToCloudinary(file);
+      cloudinaryUrl = await uploadToCloudinary(env, file); // ✅ env uzatildi
     } else {
-      cloudinaryUrl = await uploadUrlToCloudinary(videoUrl);
+      cloudinaryUrl = await uploadUrlToCloudinary(env, videoUrl); // ✅ env uzatildi
     }
 
     const platforms: Platform[] = ["youtube", "tiktok", "instagram", "facebook"];
     const ids: string[] = [];
 
     for (const platform of platforms) {
-      const id = await enqueueVideo({
+      const id = await enqueueVideo(env, { // ✅ env uzatildi
         videoUrl: cloudinaryUrl,
         prompt,
         channelName,
@@ -127,4 +123,4 @@ function isValidUrl(string: string): boolean {
   } catch (_) {
     return false;
   }
-}
+                                    }
