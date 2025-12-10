@@ -9,9 +9,7 @@ kv_namespaces = [
 ]
 
 # Cron (har 2 soatda)
-triggers = [
-  { cron = "0 */2 * * *" }
-]
+
 
 # Environment Variables
 [vars]
