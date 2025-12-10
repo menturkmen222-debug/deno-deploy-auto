@@ -8,8 +8,8 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
     throw new Error(`YouTube token not found for ${video.channelName}`);
   }
 
-  const client_id = "209564473028-n5s0htgj8ehkiot6if4uju21rss4mnbf.apps.googleusercontent.com";
-  const client_secret = "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";
+  const client_id = "209564473028-m7sd2gprndtfv99h6vm6vm894f1apv8g.apps.googleusercontent.com";
+  const client_secret = "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";
 
   // ✅ TO'G'RI: BO'SH JOYSIZ
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
