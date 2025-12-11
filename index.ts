@@ -9,7 +9,6 @@ export interface Env {
   CLOUDINARY_UPLOAD_PRESET: string;
   GROQ_API_KEY: string;
 
-  // YouTube refresh tokenlar (kanal nomlari bo‘yicha)
   TECH_BUNI_YT_TOKEN: string;
   COOKING_BUNI_YT_TOKEN?: string;
   TRAVEL_BUNI_YT_TOKEN?: string;
@@ -17,21 +16,16 @@ export interface Env {
   LIFE_BUNI_YT_TOKEN?: string;
 }
 
-// CORS javob
+// CORS helper
 function corsResponse(body: string | null = null, init: ResponseInit = {}): Response {
   const headers = new Headers(init.headers);
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   headers.set("Access-Control-Allow-Headers", "Content-Type");
-
-  return new Response(body, {
-    ...init,
-    headers,
-  });
+  return new Response(body, { ...init, headers });
 }
 
 export default {
-  // Asosiy fetch handler
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
@@ -41,24 +35,22 @@ export default {
     }
 
     try {
-      // 1. Video yuklash (frontenddan)
+      // 1. Video yuklash
       if (url.pathname === "/upload-video" && request.method === "POST") {
         const res = await handleUpload(request, env);
         return corsResponse(res.body, { status: res.status, headers: res.headers });
       }
 
-      // 2. Scheduler (GitHub Actions yoki Cloudflare Cron)
+      // 2. Scheduler (cron yoki GitHub Actions)
       if (url.pathname === "/run-schedule" && request.method === "POST") {
         const res = await handleSchedule(request, env);
-        return corsResponse(res.body, { status: res.status, headers: res.headers });
+        return corsResponse(res.body, { status: res.status });
       }
 
       // 3. Statistika
-      if (url.pathname === "/api/stats" && request.method === "GET") {
+      if (url.pathname === "/api/stats") {
         const res = await handleStats(request, env);
         return corsResponse(res.body, { status: res.status, headers: res.headers });
-      }
-
       }
 
       // 404
@@ -66,15 +58,14 @@ export default {
     } catch (err: any) {
       console.error("Worker xatosi:", err);
       return corsResponse(
-        JSON.stringify({ error: "Internal Server Error", message: err?.message }),
+        JSON.stringify({ error: "Internal Server Error", details: err?.message }),
         { status: 500 }
       );
     }
   },
 
-  // Cloudflare Cron Trigger (har 2 soatda ishlaydi)
+  // Cloudflare Cron Trigger (har 2 soatda avto ishlaydi)
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    // To‘g‘ri usul — oddiy fetch
     ctx.waitUntil(
       fetch("https://autodz.tkmjoker89.workers.dev/run-schedule", {
         method: "POST",
