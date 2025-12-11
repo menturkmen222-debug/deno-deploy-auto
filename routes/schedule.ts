@@ -7,10 +7,9 @@ import { uploadToYouTube } from "../services/platforms/youtube.ts";
 
 export async function handleSchedule(request: Request, env: Env): Promise<Response> {
   const logger = new Logger(env);
+  await logger.info("🔄 Scheduler ishga tushdi");
 
   try {
-    await logger.info("🔄 Scheduler ishga tushdi");
-
     const videos = await getReadyToUploadVideos(env, 1);
     if (videos.length === 0) {
       await logger.info("📭 Navbatda video yo'q");
@@ -18,11 +17,24 @@ export async function handleSchedule(request: Request, env: Env): Promise<Respon
     }
 
     for (const video of videos) {
+      await logger.info("▶️ Video ishlanmoqda", {
+        id: video.id,
+        platform: video.platform,
+        channel: video.channelName,
+        prompt: video.prompt,
+      });
+
       try {
         await updateVideoStatus(env, video.id, "processing");
-        await logger.info("▶️ Video ishlanmoqda", { id: video.id, platform: video.platform });
 
+        // ✅ AI bilan metadata yaratish
         const meta = await generateMetadata(env, video.prompt);
+        await logger.info("🧠 AI metadata yaratildi", {
+          id: video.id,
+          title: meta.title,
+          tags: meta.tags,
+        });
+
         await updateVideoStatus(env, video.id, "processing", meta);
 
         let success = false;
@@ -32,22 +44,15 @@ export async function handleSchedule(request: Request, env: Env): Promise<Respon
 
         await updateVideoStatus(env, video.id, success ? "uploaded" : "failed");
         await logger.info(
-          success ? "✅ Video yuklandi" : "❌ Video yuklanmadi",
-          {
-            id: video.id,
-            platform: video.platform,
-            channel: video.channelName,
-            success,
-          }
+          success ? "✅ Muvaffaqiyatli yuklandi" : "❌ Yuklanmadi",
+          { id: video.id, platform: video.platform, title: meta.title }
         );
       } catch (err) {
         await updateVideoStatus(env, video.id, "failed");
         await logger.error("💥 Video ishlashda xato", {
           id: video.id,
-          platform: video.platform,
-          channel: video.channelName,
           error: err.message,
-          stack: err.stack,
+          stack: err.stack?.substring(0, 200),
         });
       }
     }
