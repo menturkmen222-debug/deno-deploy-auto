@@ -1,90 +1,85 @@
 // index.ts
-import { handleUpload } from "./routes/upload";
-import { handleSchedule } from "./routes/schedule";
-import { handleStats } from "./routes/stats";
+import { handleUpload } from "./routes/upload.ts";
+import { handleSchedule } from "./routes/schedule.ts";
+import { handleStats } from "./routes/stats.ts";
 
 export interface Env {
   VIDEO_QUEUE: KVNamespace;
   CLOUDINARY_CLOUD_NAME: string;
   CLOUDINARY_UPLOAD_PRESET: string;
   GROQ_API_KEY: string;
+
+  // YouTube refresh tokenlar (kanal nomlari bo‘yicha)
   TECH_BUNI_YT_TOKEN: string;
-  COOKING_BUNI_YT_TOKEN: string;
-  TRAVEL_BUNI_YT_TOKEN: string;
-  GAMING_BUNI_YT_TOKEN: string;
-  LIFE_BUNI_YT_TOKEN: string;
-  // Agar boshqa platformalar qo'shsangiz — ularni ham qo'shing
+  COOKING_BUNI_YT_TOKEN?: string;
+  TRAVEL_BUNI_YT_TOKEN?: string;
+  GAMING_BUNI_YT_TOKEN?: string;
+  LIFE_BUNI_YT_TOKEN?: string;
 }
 
-// CORS javobini yaratish
-function handleCORS(): Response {
-  return new Response(null, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
+// CORS javob
+function corsResponse(body: string | null = null, init: ResponseInit = {}): Response {
+  const headers = new Headers(init.headers);
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type");
+
+  return new Response(body, {
+    ...init,
+    headers,
   });
 }
 
 export default {
+  // Asosiy fetch handler
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // CORS preflight so'rovi
+    // CORS preflight
     if (request.method === "OPTIONS") {
-      return handleCORS();
+      return corsResponse();
     }
 
     try {
-      // Video yuklash (frontend → Cloudflare)
+      // 1. Video yuklash (frontenddan)
       if (url.pathname === "/upload-video" && request.method === "POST") {
-        const response = await handleUpload(request, env);
-        // CORS headerini qo'shish
-        const headers = new Headers(response.headers);
-        headers.set("Access-Control-Allow-Origin", "*");
-        return new Response(response.body, { status: response.status, headers });
+        const res = await handleUpload(request, env);
+        return corsResponse(res.body, { status: res.status, headers: res.headers });
       }
 
-      // Scheduler (GitHub Actions → Cloudflare)
+      // 2. Scheduler (GitHub Actions yoki Cloudflare Cron)
       if (url.pathname === "/run-schedule" && request.method === "POST") {
-        const response = await handleSchedule(request, env);
-        const headers = new Headers(response.headers);
-        headers.set("Access-Control-Allow-Origin", "*");
-        return new Response(response.body, { status: response.status, headers });
+        const res = await handleSchedule(request, env);
+        return corsResponse(res.body, { status: res.status, headers: res.headers });
       }
 
-      // Statistika (frontend → Cloudflare)
-      if (url.pathname === "/api/stats") {
-        const response = await handleStats(request, env);
-        const headers = new Headers(response.headers);
-        headers.set("Access-Control-Allow-Origin", "*");
-        return new Response(response.body, { status: response.status, headers });
+      // 3. Statistika
+      if (url.pathname === "/api/stats" && request.method === "GET") {
+        const res = await handleStats(request, env);
+        return corsResponse(res.body, { status: res.status, headers: res.headers });
       }
 
-      // Barcha boshqa so'rovlar — 404
-      return new Response("❌ Not Found", { status: 404 });
-    } catch (err) {
-      console.error("Server xatosi:", err);
-      return new Response(
-        JSON.stringify({ error: "Internal Server Error" }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
-        }
+      }
+
+      // 404
+      return corsResponse("Not Found", { status: 404 });
+    } catch (err: any) {
+      console.error("Worker xatosi:", err);
+      return corsResponse(
+        JSON.stringify({ error: "Internal Server Error", message: err?.message }),
+        { status: 500 }
       );
     }
   },
 
-  // Cron Trigger (har 2 soatda ishlaydi)
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    const request = new Request("https://autodz.tkmjoker89.workers.dev/run-schedule", {
-      method: "POST",
-    });
-    // `fetch` ni `ctx.waitUntil` bilan ishlatish — natijani kutish
-    ctx.waitUntil(fetch(request, { backend: env }));
+  // Cloudflare Cron Trigger (har 2 soatda ishlaydi)
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    // To‘g‘ri usul — oddiy fetch
+    ctx.waitUntil(
+      fetch("https://autodz.tkmjoker89.workers.dev/run-schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+    );
   },
 };
