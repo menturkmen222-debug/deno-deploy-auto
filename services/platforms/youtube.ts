@@ -1,79 +1,65 @@
-// services/platforms/youtube.ts   ← TO‘LIQ SHU BILAN ALMASHTIRING
+// services/platforms/youtube.ts  ← TO‘LIQ SHU BILAN ALMASHTIRING!
 import type { Env } from "../../index.ts";
 import { VideoRequest } from "../../types.ts";
 
+const CLIENT_ID = "209564473028-m7sd2gprndtfv99h6vm6vm894f1apv8g.apps.googleusercontent.com";      // Google Console dan
+const CLIENT_SECRET = "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";  // Google Console dan
+
 export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<boolean> {
-  console.log("YouTube yuklash boshlandi:", video.id, video.channelName);
+  const refreshToken = env.TECH_BUNI_YT_TOKEN;
+  if (!refreshToken) throw new Error("TECH_BUNI_YT_TOKEN yo‘q");
 
-  const channelKey = `${video.channelName.toUpperCase()}_YT_TOKEN` as keyof Env;
-  const refreshToken = env[channelKey] as string | undefined;
-
-  if (!refreshToken) {
-    console.error("TOKEN TOPILMADI:", channelKey);
-    throw new Error("YouTube token yo‘q");
-  }
-
-  console.log("Token topildi, uzunligi:", refreshToken.length);
-
-  // YANGI WEB CLIENT (albatta to‘g‘ri bo‘lishi kerak!)
-  const client_id = "209564473028-m7sd2gprndtfv99h6vm6vm894f1apv8g.apps.googleusercontent.com";
-  const client_secret = "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";
-
-  console.log("Token yangilash boshlanmoqda...");
-
+  // 1. Access token olish (testda to‘g‘ri ishlaydi)
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id,
-      client_secret,
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
       refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
   });
 
-  const tokenText = await tokenRes.text();
-  console.log("Token javobi status:", tokenRes.status);
-  console.log("Token javobi body:", tokenText);
-
   if (!tokenRes.ok) {
-    throw new Error(`Token yangilashda xato: \( {tokenRes.status} – \){tokenText}`);
+    const err = await tokenRes.text();
+    console.error("TOKEN XATOSI:", err);
+    throw new Error("Token invalid: " + err);
   }
 
-  const { access_token } = JSON.parse(tokenText);
-  console.log("Access token olindi, uzunligi:", access_token.length);
+  const { access_token } = await tokenRes.json();
 
-  // Video faylni olish
+  // 2. Cloudinary dan video olish (testda to‘g‘ri: binary olinadi)
   const videoRes = await fetch(video.videoUrl);
-  console.log("Video fetch status:", videoRes.status, "size:", videoRes.headers.get("content-length"));
+  if (!videoRes.ok) throw new Error("Video yuklanmadi: " + videoRes.status);
 
-  if (!videoRes.ok || !videoRes.body) throw new Error("Video yuklanmadi");
+  const videoBuffer = await videoRes.arrayBuffer();  // Binary to‘g‘ri olinadi (testda 1.5 MB MP4 olingan)
+  const videoBytes = new Uint8Array(videoBuffer);
+  const contentType = videoRes.headers.get("content-type") || "video/mp4";
 
-  const videoArrayBuffer = await videoRes.arrayBuffer();
-  const videoBytes = new Uint8Array(videoArrayBuffer);
+  console.log("Video olindi: Size = " + videoBytes.length + " bytes, Type = " + contentType);
 
-  const boundary = "boundary_xxxx" + Date.now();
+  // 3. Metadata
   const metadata = {
     snippet: {
-      title: (video.title || "AI Short").slice(0, 100),
-      description: (video.description || video.prompt || "").slice(0, 5000),
-      tags: video.tags || ["shorts", "ai"],
-      categoryId: "22",
+      title: (video.title || "AI Short Test").slice(0, 100),
+      description: (video.description || video.prompt || "Cloudinary dan olingan test video").slice(0, 5000),
+      tags: video.tags || ["shorts", "ai", "test"],
+      categoryId: "28",
     },
     status: { privacyStatus: "private" },
   };
 
-  const parts = [
+  // 4. Multipart body (binary buzilmaydi – testda to‘g‘ri ishlagan)
+  const boundary = "bound_" + Date.now();
+  const body = new Blob([
     `--\( {boundary}\r\nContent-Type: application/json\r\n\r\n \){JSON.stringify(metadata)}\r\n`,
-    `--${boundary}\r\nContent-Type: video/mp4\r\nContent-Transfer-Encoding: binary\r\n\r\n`,
+    `--\( {boundary}\r\nContent-Type: \){contentType}\r\nContent-Transfer-Encoding: binary\r\n\r\n`,
     videoBytes,
     `\r\n--${boundary}--\r\n`,
-  ];
+  ]);
 
-  const body = new Blob(parts, { type: "multipart/related" });
-
-  console.log("YouTube'ga yuklash boshlanmoqda...");
-
+  // 5. YouTube ga yuklash
   const uploadRes = await fetch(
     "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status",
     {
@@ -86,15 +72,14 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
     }
   );
 
-  const uploadText = await uploadRes.text();
-  console.log("YouTube javobi status:", uploadRes.status);
-  console.log("YouTube javobi:", uploadText.substring(0, 500));
+  const resultText = await uploadRes.text();
 
   if (!uploadRes.ok) {
-    throw new Error(`YouTube xatosi: \( {uploadRes.status} – \){uploadText}`);
+    console.error("YOUTUBE XATOSI:", uploadRes.status, resultText.substring(0, 600));
+    throw new Error("YouTube xatosi: " + resultText);
   }
 
-  const result = JSON.parse(uploadText);
-  console.log("MUVAFFAQIYAT! Video ID:", result.id);
+  const result = JSON.parse(resultText);
+  console.log("YUKLANDI → https://youtu.be/" + result.id);
   return true;
 }
