@@ -1,21 +1,23 @@
-// services/platforms/youtube.ts  ← TO‘LIQ SHU BILAN ALMASHTIRING!
+// services/platforms/youtube.ts
 import type { Env } from "../../index.ts";
 import { VideoRequest } from "../../types.ts";
 
-const CLIENT_ID = "209564473028-m7sd2gprndtfv99h6vm6vm894f1apv8g.apps.googleusercontent.com";      // Google Console dan
-const CLIENT_SECRET = "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";  // Google Console dan
-
 export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<boolean> {
-  const refreshToken = env.TECH_BUNI_YT_TOKEN;
-  if (!refreshToken) throw new Error("TECH_BUNI_YT_TOKEN yo‘q");
+  const refreshToken = env[`${video.channelName.toUpperCase()}_YT_TOKEN` as keyof Env] as string;
+  if (!refreshToken) {
+    throw new Error(`YouTube token not found for ${video.channelName}`);
+  }
 
-  // 1. Access token olish (testda to‘g‘ri ishlaydi)
+  const client_id = "209564473028-2gkh592o4gkba6maepq61sh5np6japen.apps.googleusercontent.com";
+  const client_secret = "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";
+
+  // ✅ TO'G'RI: BO'SH JOYSIZ
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
+      client_id,
+      client_secret,
       refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
@@ -23,43 +25,28 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
 
   if (!tokenRes.ok) {
     const err = await tokenRes.text();
-    console.error("TOKEN XATOSI:", err);
-    throw new Error("Token invalid: " + err);
+    throw new Error(`Token olishda xato: ${tokenRes.status} – ${err}`);
   }
 
   const { access_token } = await tokenRes.json();
 
-  // 2. Cloudinary dan video olish (testda to‘g‘ri: binary olinadi)
   const videoRes = await fetch(video.videoUrl);
-  if (!videoRes.ok) throw new Error("Video yuklanmadi: " + videoRes.status);
+  const videoBytes = new Uint8Array(await videoRes.arrayBuffer());
 
-  const videoBuffer = await videoRes.arrayBuffer();  // Binary to‘g‘ri olinadi (testda 1.5 MB MP4 olingan)
-  const videoBytes = new Uint8Array(videoBuffer);
-  const contentType = videoRes.headers.get("content-type") || "video/mp4";
-
-  console.log("Video olindi: Size = " + videoBytes.length + " bytes, Type = " + contentType);
-
-  // 3. Metadata
   const metadata = {
     snippet: {
-      title: (video.title || "AI Short Test").slice(0, 100),
-      description: (video.description || video.prompt || "Cloudinary dan olingan test video").slice(0, 5000),
-      tags: video.tags || ["shorts", "ai", "test"],
-      categoryId: "28",
+      title: video.title || "Auto Short",
+      description: video.description || video.prompt,
+      tags: video.tags || ["AI", "Shorts"],
+      categoryId: "22",
     },
     status: { privacyStatus: "private" },
   };
 
-  // 4. Multipart body (binary buzilmaydi – testda to‘g‘ri ishlagan)
-  const boundary = "bound_" + Date.now();
-  const body = new Blob([
-    `--\( {boundary}\r\nContent-Type: application/json\r\n\r\n \){JSON.stringify(metadata)}\r\n`,
-    `--\( {boundary}\r\nContent-Type: \){contentType}\r\nContent-Transfer-Encoding: binary\r\n\r\n`,
-    videoBytes,
-    `\r\n--${boundary}--\r\n`,
-  ]);
+  const boundary = "----YouTubeBoundary" + crypto.randomUUID().substring(0, 8);
+  const body = buildMultipartPayload(metadata, videoBytes, boundary);
 
-  // 5. YouTube ga yuklash
+  // ✅ TO'G'RI: BO'SH JOYSIZ
   const uploadRes = await fetch(
     "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status",
     {
@@ -72,14 +59,20 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
     }
   );
 
-  const resultText = await uploadRes.text();
-
   if (!uploadRes.ok) {
-    console.error("YOUTUBE XATOSI:", uploadRes.status, resultText.substring(0, 600));
-    throw new Error("YouTube xatosi: " + resultText);
+    const err = await uploadRes.text();
+    console.error("YouTube xato:", err);
+    throw new Error(`YouTube yuklamadi: ${uploadRes.status}`);
   }
 
-  const result = JSON.parse(resultText);
-  console.log("YUKLANDI → https://youtu.be/" + result.id);
+  console.log(`✅ YouTube: ${video.channelName}`);
   return true;
+}
+
+function buildMultipartPayload(metadata: any, videoBytes: Uint8Array, boundary: string): string {
+  let payload = "";
+  payload += `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(metadata)}\r\n`;
+  payload += `--${boundary}\r\nContent-Type: video/mp4\r\n\r\n${new TextDecoder().decode(videoBytes)}\r\n`;
+  payload += `--${boundary}--\r\n`;
+  return payload;
 }
