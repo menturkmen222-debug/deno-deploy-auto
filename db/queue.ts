@@ -44,7 +44,7 @@ export async function getReadyToUploadVideos(env: Env, limit = 1): Promise<Video
 
     const dailyKey = getDailyKey(new Date(video.scheduledAt));
     const currentCount = await getCurrentDailyCount(env, video.channelName, video.platform, dailyKey);
-    if (currentCount >= 5) continue;
+    if (currentCount >= 20) continue;
 
     await incrementDailyCount(env, video.channelName, video.platform, dailyKey);
     ready.push(video);
