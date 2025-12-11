@@ -5,24 +5,45 @@ import { handleStats } from "./routes/stats.ts";
 
 export interface Env {
   VIDEO_QUEUE: KVNamespace;
+  LOGS: KVNamespace;
   CLOUDINARY_CLOUD_NAME: string;
   CLOUDINARY_UPLOAD_PRESET: string;
   GROQ_API_KEY: string;
-
+  // YouTube
   TECH_BUNI_YT_TOKEN: string;
-  COOKING_BUNI_YT_TOKEN?: string;
-  TRAVEL_BUNI_YT_TOKEN?: string;
-  GAMING_BUNI_YT_TOKEN?: string;
-  LIFE_BUNI_YT_TOKEN?: string;
+  COOKING_BUNI_YT_TOKEN: string;
+  TRAVEL_BUNI_YT_TOKEN: string;
+  GAMING_BUNI_YT_TOKEN: string;
+  LIFE_BUNI_YT_TOKEN: string;
+  // TikTok
+  TECH_BUNI_TT_TOKEN: string;
+  COOKING_BUNI_TT_TOKEN: string;
+  TRAVEL_BUNI_TT_TOKEN: string;
+  GAMING_BUNI_TT_TOKEN: string;
+  LIFE_BUNI_TT_TOKEN: string;
+  // Instagram
+  TECH_BUNI_IG_TOKEN: string;
+  COOKING_BUNI_IG_TOKEN: string;
+  TRAVEL_BUNI_IG_TOKEN: string;
+  GAMING_BUNI_IG_TOKEN: string;
+  LIFE_BUNI_IG_TOKEN: string;
+  // Facebook
+  TECH_BUNI_FB_TOKEN: string;
+  COOKING_BUNI_FB_TOKEN: string;
+  TRAVEL_BUNI_FB_TOKEN: string;
+  GAMING_BUNI_FB_TOKEN: string;
+  LIFE_BUNI_FB_TOKEN: string;
 }
 
-// CORS helper
-function corsResponse(body: string | null = null, init: ResponseInit = {}): Response {
-  const headers = new Headers(init.headers);
-  headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type");
-  return new Response(body, { ...init, headers });
+// CORS handler
+function handleCORS(): Response {
+  return new Response(null, {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
 }
 
 export default {
@@ -31,46 +52,53 @@ export default {
 
     // CORS preflight
     if (request.method === "OPTIONS") {
-      return corsResponse();
+      return handleCORS();
     }
 
     try {
-      // 1. Video yuklash
       if (url.pathname === "/upload-video" && request.method === "POST") {
         const res = await handleUpload(request, env);
-        return corsResponse(res.body, { status: res.status, headers: res.headers });
+        res.headers.set("Access-Control-Allow-Origin", "*");
+        return res;
       }
 
-      // 2. Scheduler (cron yoki GitHub Actions)
       if (url.pathname === "/run-schedule" && request.method === "POST") {
         const res = await handleSchedule(request, env);
-        return corsResponse(res.body, { status: res.status });
+        res.headers.set("Access-Control-Allow-Origin", "*");
+        return res;
       }
 
-      // 3. Statistika
       if (url.pathname === "/api/stats") {
         const res = await handleStats(request, env);
-        return corsResponse(res.body, { status: res.status, headers: res.headers });
+        res.headers.set("Access-Control-Allow-Origin", "*");
+        return res;
       }
 
-      // 404
-      return corsResponse("Not Found", { status: 404 });
-    } catch (err: any) {
-      console.error("Worker xatosi:", err);
-      return corsResponse(
-        JSON.stringify({ error: "Internal Server Error", details: err?.message }),
-        { status: 500 }
+      if (url.pathname === "/api/logs") {
+        const res = await handleLogs(request, env);
+        res.headers.set("Access-Control-Allow-Origin", "*");
+        return res;
+      }
+
+      return new Response("❌ Not Found", { status: 404 });
+    } catch (err) {
+      console.error("Server xatosi:", err);
+      return new Response(
+        JSON.stringify({ error: "Internal Server Error" }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
       );
     }
   },
 
-  // Cloudflare Cron Trigger (har 2 soatda avto ishlaydi)
-  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(
-      fetch("https://autodz.tkmjoker89.workers.dev/run-schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      })
-    );
+  // Cron Trigger (har 2 soatda)
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    const request = new Request("https://autotm.deno.dev/run-schedule", { method: "POST" });
+    await fetch(request);
   },
 };
