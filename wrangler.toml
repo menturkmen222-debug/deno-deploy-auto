@@ -1,20 +1,52 @@
-# wrangler.toml
-name = 'autodz'
+name = "autodz"
 main = "index.ts"
 compatibility_date = "2024-12-08"
 
-# KV
-kv_namespaces = [
-  { binding = "VIDEO_QUEUE", id = "58d50a7063994480abcc1ec0705cbd28" }
-]
+# KV Namespaces
+[[kv_namespaces]]
+binding = "VIDEO_QUEUE"
+id = "58d50a7063994480abcc1ec0705cbd28"  # Sizning ID
+preview_id = "58d50a7063994480abcc1ec0705cbd28"
 
-# Cron (har 2 soatda)
+[[kv_namespaces]]
+binding = "LOGS"
+id = "597608c5497040b6825706ccac2a7a1b"  # Siz yaratishingiz kerak
+preview_id = "597608c5497040b6825706ccac2a7a1b"
 
+# Cron Trigger
+[[triggers]]
+cron = "0 */2 * * *"
 
-# Environment Variables
+# Environment Variables (siz ularni Cloudflare UI orqali ham qo'shishingiz mumkin)
 [vars]
 CLOUDINARY_CLOUD_NAME = "daq8wfgnt"
 CLOUDINARY_UPLOAD_PRESET = "ml_default"
 GROQ_API_KEY = "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"
-TECH_BUNI_YT_TOKEN = "1//04UeU7EyoCu8CCgYIARAAGAQSNWF-L9Ir00Mr1FNIfzry4tRcLW_43TfAMPRHLgwbkCyDfyaZ_oLMmv97aSctVAepQbWHt44m-jw"
-# ... barcha tokenlar
+
+# YouTube Tokens
+TECH_BUNI_YT_TOKEN = "1//04fITPJejppkXCgYIARAAGAQSNwF-L9Ir-x_XgAP_Jja5mkn5NqnCjyjs91O94FJIeMYtiSJRTsXhdFhbv18KCT4PzB2mkniM_A4"
+COOKING_BUNI_YT_TOKEN = "1//xxx..."
+TRAVEL_BUNI_YT_TOKEN = "1//xxx..."
+GAMING_BUNI_YT_TOKEN = "1//xxx..."
+LIFE_BUNI_YT_TOKEN = "1//xxx..."
+
+# TikTok Tokens
+TECH_BUNI_TT_TOKEN = "act.xxx..."
+COOKING_BUNI_TT_TOKEN = "act.xxx..."
+TRAVEL_BUNI_TT_TOKEN = "act.xxx..."
+GAMING_BUNI_TT_TOKEN = "act.xxx..."
+LIFE_BUNI_TT_TOKEN = "act.xxx..."
+
+# Instagram Tokens
+TECH_BUNI_IG_TOKEN = "EAAGxxx..."
+COOKING_BUNI_IG_TOKEN = "EAAGxxx..."
+TRAVEL_BUNI_IG_TOKEN = "EAAGxxx..."
+GAMING_BUNI_IG_TOKEN = "EAAGxxx..."
+LIFE_BUNI_IG_TOKEN = "EAAGxxx..."
+
+# Facebook Tokens
+TECH_BUNI_FB_TOKEN = "EAAGxxx..."
+COOKING_BUNI_FB_TOKEN = "EAAGxxx..."
+TRAVEL_BUNI_FB_TOKEN = "EAAGxxx..."
+GAMING_BUNI_FB_TOKEN = "EAAGxxx..."
+LIFE_BUNI_FB_TOKEN = "EAAGxxx..."
