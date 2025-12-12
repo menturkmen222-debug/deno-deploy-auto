@@ -12,7 +12,7 @@ export async function handleSchedule(request: Request, env: Env): Promise<Respon
   await logger.info("🔄 Scheduler ishga tushdi (bitta video barcha platformalar)");
 
   try {
-    // ✅ Queue'dan **bitta** tayyor video olamiz
+    // ✅ Queue'dan **bitta** tayyor video oalamiz
     const videos = await getReadyToUploadVideos(env, 1);
     if (videos.length === 0) {
       await logger.info("📭 Navbatda video yo'q");
