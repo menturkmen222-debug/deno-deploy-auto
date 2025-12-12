@@ -1,7 +1,7 @@
 import { handleUpload } from "./routes/upload.ts";
-import { handleSchedule } from "./routes/schedule.ts";
+import { handleScheduleAll } from "./routes/schedule.ts";
 import { handleStats } from "./routes/stats.ts";
-import { handleLogs } from "./routes/logs.ts"; // agar log endpoint kerak bo‘lsa
+import { Logger } from "./utils/logger.ts";
 
 export interface Env {
   VIDEO_QUEUE: KVNamespace;
@@ -9,28 +9,24 @@ export interface Env {
   CLOUDINARY_CLOUD_NAME: string;
   CLOUDINARY_UPLOAD_PRESET: string;
   GROQ_API_KEY: string;
-
   // YouTube
   TECH_BUNI_YT_TOKEN: string;
   COOKING_BUNI_YT_TOKEN: string;
   TRAVEL_BUNI_YT_TOKEN: string;
   GAMING_BUNI_YT_TOKEN: string;
   LIFE_BUNI_YT_TOKEN: string;
-
   // TikTok
   TECH_BUNI_TT_TOKEN: string;
   COOKING_BUNI_TT_TOKEN: string;
   TRAVEL_BUNI_TT_TOKEN: string;
   GAMING_BUNI_TT_TOKEN: string;
   LIFE_BUNI_TT_TOKEN: string;
-
   // Instagram
   TECH_BUNI_IG_TOKEN: string;
   COOKING_BUNI_IG_TOKEN: string;
   TRAVEL_BUNI_IG_TOKEN: string;
   GAMING_BUNI_IG_TOKEN: string;
   LIFE_BUNI_IG_TOKEN: string;
-
   // Facebook
   TECH_BUNI_FB_TOKEN: string;
   COOKING_BUNI_FB_TOKEN: string;
@@ -53,6 +49,7 @@ function handleCORS(): Response {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const logger = new Logger(env);
 
     // CORS preflight
     if (request.method === "OPTIONS") {
@@ -67,7 +64,7 @@ export default {
       }
 
       if (url.pathname === "/run-schedule" && request.method === "POST") {
-        const res = await handleSchedule(request, env);
+        const res = await handleScheduleAll(request, env);
         res.headers.set("Access-Control-Allow-Origin", "*");
         return res;
       }
@@ -78,10 +75,9 @@ export default {
         return res;
       }
 
-      if (url.pathname === "/api/logs") {
-        const res = await handleLogs(request, env);
-        res.headers.set("Access-Control-Allow-Origin", "*");
-        return res;
+      if (url.pathname === "/clear-logs" && request.method === "POST") {
+        const totalDeleted = await logger.clearLogs();
+        return new Response(`✅ Barcha loglar o‘chirildi: ${totalDeleted}`, { status: 200 });
       }
 
       return new Response("❌ Not Found", { status: 404 });
@@ -100,15 +96,9 @@ export default {
     }
   },
 
-  // Cron trigger – har 2 soatda ishga tushadi (Cloudflare Dashboard orqali sozlanadi)
+  // Cron Trigger (har 2 soatda)
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // `/run-schedule` endpointini chaqirish
-    try {
-      const request = new Request("https://YOUR_WORKER_URL/run-schedule", { method: "POST" });
-      await fetch(request);
-      console.log("✅ Cron triggered: /run-schedule executed");
-    } catch (err) {
-      console.error("🔥 Cron error:", err);
-    }
+    const request = new Request("https://sizning-worker.com/run-schedule", { method: "POST" });
+    await fetch(request);
   },
 };
