@@ -1,26 +1,26 @@
+// routes/schedule.ts
 import type { Env } from "../index.ts";
 import { Logger } from "../utils/logger.ts";
-import { getReadyToUploadVideos, updateVideoStatus } from "../db/queue.ts";
+import { getReadyToUploadVideos, updateVideoStatus, clearLogs } from "../db/queue.ts";
 import { generateMetadata } from "../services/groq.ts";
 import { uploadToYouTube } from "../services/platforms/youtube.ts";
 import { uploadToTikTok } from "../services/platforms/tiktok.ts";
 import { uploadToInstagram } from "../services/platforms/instagram.ts";
 import { uploadToFacebook } from "../services/platforms/facebook.ts";
 
-export async function handleSchedule(request: Request, env: Env): Promise<Response> {
+// ✅ Bitta video barcha platformalarga bir vaqtda yuklanadi
+export async function handleScheduleAll(request: Request, env: Env): Promise<Response> {
   const logger = new Logger(env);
-  await logger.info("🔄 Scheduler ishga tushdi (bitta video barcha platformalar)");
+  await logger.info("🔄 Scheduler ishga tushdi (barcha platformalar)");
 
   try {
-    // ✅ Queue'dan **bitta** tayyor video oalamiz
-    const videos = await getReadyToUploadVideos(env, 1);
+    const videos = await getReadyToUploadVideos(env, 1); // faqat bitta tayyor video
     if (videos.length === 0) {
       await logger.info("📭 Navbatda video yo'q");
       return new Response("No videos ready", { status: 200 });
     }
 
-    const video = videos[0];
-
+    const video = videos[0]; // bitta video
     await logger.info("▶️ Video ishlanmoqda", {
       id: video.id,
       prompt: video.prompt,
@@ -28,10 +28,9 @@ export async function handleSchedule(request: Request, env: Env): Promise<Respon
     });
 
     try {
-      // 1️⃣ Video statusni 'processing' ga o‘zgartiramiz
       await updateVideoStatus(env, video.id, "processing");
 
-      // 2️⃣ AI metadata yaratish faqat bir marta
+      // AI metadata yaratish
       const meta = await generateMetadata(env, video.prompt);
       await logger.info("🧠 AI metadata yaratildi", {
         id: video.id,
@@ -42,7 +41,7 @@ export async function handleSchedule(request: Request, env: Env): Promise<Respon
 
       await updateVideoStatus(env, video.id, "processing", meta);
 
-      // 3️⃣ Platformalar bo‘yicha parallel upload qilish
+      // Platformalar bo‘yicha upload qilish
       const platformFuncs: Record<string, (env: Env, video: any) => Promise<boolean>> = {
         youtube: uploadToYouTube,
         tiktok: uploadToTikTok,
@@ -50,10 +49,12 @@ export async function handleSchedule(request: Request, env: Env): Promise<Respon
         facebook: uploadToFacebook,
       };
 
-      const uploadPromises = Object.entries(platformFuncs).map(async ([platform, func]) => {
+      for (const platform of ["youtube", "tiktok", "instagram", "facebook"] as const) {
         try {
-          const success = await func(env, { ...video, ...meta, platform });
+          const uploadFunc = platformFuncs[platform];
+          const success = await uploadFunc(env, { ...video, ...meta, platform });
           await updateVideoStatus(env, video.id, success ? "uploaded" : "failed", { platform });
+
           await logger.info(success ? "✅ Muvaffaqiyatli yuklandi" : "❌ Yuklanmadi", {
             id: video.id,
             platform,
@@ -68,11 +69,8 @@ export async function handleSchedule(request: Request, env: Env): Promise<Respon
             stack: err.stack?.substring(0, 200),
           });
         }
-      });
+      }
 
-      await Promise.all(uploadPromises);
-
-      return new Response(`Processed video ${video.id} for all platforms`, { status: 200 });
     } catch (err) {
       await updateVideoStatus(env, video.id, "failed");
       await logger.error("💥 Video ishlashda global xato", {
@@ -80,13 +78,26 @@ export async function handleSchedule(request: Request, env: Env): Promise<Respon
         error: err.message,
         stack: err.stack?.substring(0, 200),
       });
-      return new Response("Video processing error", { status: 500 });
     }
+
+    await logger.info(`✅ 1 ta video ishlandi barcha platformalar uchun`);
+    return new Response("Processed 1 video for all platforms", { status: 200 });
+
   } catch (err) {
     await logger.error("🔥 Scheduler xatosi", {
       error: err.message,
       stack: err.stack,
     });
     return new Response("Internal Server Error", { status: 500 });
+  }
+}
+
+// ✅ Loglarni tozalash
+export async function handleClearLogs(request: Request, env: Env): Promise<Response> {
+  try {
+    await clearLogs(env);
+    return new Response("Logs cleared successfully", { status: 200 });
+  } catch (err) {
+    return new Response("Failed to clear logs", { status: 500 });
   }
 }
