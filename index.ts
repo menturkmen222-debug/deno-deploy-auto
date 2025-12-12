@@ -1,7 +1,7 @@
 import { handleUpload } from "./routes/upload.ts";
 import { handleScheduleAll } from "./routes/schedule.ts";
 import { handleStats } from "./routes/stats.ts";
-import { clearLogs } from "./db/queue.ts";
+import { clearLogs, getLogs } from "./db/queue.ts";
 
 export interface Env {
   VIDEO_QUEUE: KVNamespace;
@@ -35,7 +35,7 @@ export interface Env {
   LIFE_BUNI_FB_TOKEN: string;
 }
 
-// CORS handlerr
+// CORS handler
 function handleCORS(): Response {
   return new Response(null, {
     headers: {
@@ -74,7 +74,21 @@ export default {
 
       if (url.pathname === "/api/clear-logs" && request.method === "POST") {
         await clearLogs(env);
-        return new Response("✅ Logs cleared", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
+        return new Response("✅ Logs cleared", {
+          status: 200,
+          headers: { "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      if (url.pathname === "/api/logs" && request.method === "GET") {
+        const logs = await getLogs(env);
+        return new Response(JSON.stringify(logs), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
       }
 
       return new Response("❌ Not Found", { status: 404 });
