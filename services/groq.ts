@@ -3,15 +3,20 @@ import type { Env } from "../index.ts";
 
 export async function generateMetadata(env: Env, prompt: string): Promise<{ title: string; description: string; tags: string[] }> {
   const apiKey = env.GROQ_API_KEY;
+
+  console.log("\n🎯 [Groq AI] Metadata yaratish jarayoni boshlanmoqda...");
+
   if (!apiKey) {
-    console.warn("⚠️ GROQ_API_KEY yo'q");
-    return fallbackMetadata(prompt);
+    console.warn("⚠️ GROQ_API_KEY mavjud emas. Fallback ishlatiladi.");
+    return fallbackMetadata(prompt, "No API Key");
   }
 
-  // ✅ Aniqroq so'rov — faqat JSON qaytishini talab qilish
+  // System prompt
   const systemPrompt = `You are a professional YouTube Shorts creator for US audience. Respond ONLY with valid JSON. Keys: "title" (max 55 chars), "description" (max 180 chars), "tags" (array of 5-10 strings).`;
 
   try {
+    console.log("[Groq AI] So'rov yuborilmoqda...");
+
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -19,7 +24,7 @@ export async function generateMetadata(env: Env, prompt: string): Promise<{ titl
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "llama-3.3-70b-versatile", // aktiv model
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Create metadata for: ${prompt}` }
@@ -29,38 +34,59 @@ export async function generateMetadata(env: Env, prompt: string): Promise<{ titl
       }),
     });
 
+    console.log(`[Groq AI] HTTP STATUS: ${res.status}`);
+
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Groq error ${res.status}: ${text}`);
+      console.error("[Groq AI] Server xatosi:", text);
+      return fallbackMetadata(prompt, `HTTP ${res.status}`);
     }
 
     const json = await res.json();
+
+    // log full response
+    console.log("[Groq AI] Full response:", JSON.stringify(json, null, 2));
+
     let content = json.choices?.[0]?.message?.content?.trim() || "{}";
 
-    // ✅ To'g'ri JSONni ajratish
+    // JSON ni ajratish
     if (content.includes("```json")) {
       content = content.split("```json")[1].split("```")[0].trim();
     } else if (content.startsWith("```")) {
       content = content.split("```")[1].split("```")[0].trim();
     }
 
-    const parsed = JSON.parse(content);
-    return {
-      title: (parsed.title || "AI Shorts").substring(0, 55).trim(),
-      description: (parsed.description || prompt).substring(0, 180).trim(),
-      tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 10) : ["AI", "Shorts", "Viral"],
-    };
+    try {
+      const parsed = JSON.parse(content);
+
+      const title = (parsed.title || "AI Shorts").substring(0, 55).trim();
+      const description = (parsed.description || prompt).substring(0, 180).trim();
+      const tags = Array.isArray(parsed.tags) ? parsed.tags.slice(0, 10) : ["AI", "Shorts", "Viral"];
+
+      console.log("[Groq AI] ✅ Metadata tayyor!");
+      console.log("📌 Title:", title);
+      console.log("📌 Description:", description);
+      console.log("📌 Tags:", tags);
+
+      return { title, description, tags };
+
+    } catch (parseErr) {
+      console.error("[Groq AI] JSON parsing xatosi:", parseErr);
+      console.error("[Groq AI] Content:", content);
+      return fallbackMetadata(prompt, "JSON Parse Error");
+    }
+
   } catch (err) {
-    console.error("Groqda xato:", err.message);
-    return fallbackMetadata(prompt);
+    console.error("[Groq AI] So‘rov yuborishda yoki tarmoqqa bog‘lanishda xato:", err);
+    return fallbackMetadata(prompt, "Request Error");
   }
 }
 
-function fallbackMetadata(prompt: string): { title: string; description: string; tags: string[] } {
-  // ✅ Sizning promptingizni sarlavha sifatida ishlatish
-  const title = prompt.split(" ").slice(0, 6).join(" "); // 6 so'zgacha
+function fallbackMetadata(prompt: string, reason: string): { title: string; description: string; tags: string[] } {
+  console.warn(`⚠️ Fallback ishlatilmoqda. Sabab: ${reason}`);
+  const title = prompt.split(" ").slice(0, 6).join(" ") || "AI Shorts";
   return {
-    title: title.length > 0 ? title : "AI Shorts",
+    title,
     description: prompt,
     tags: ["AI", "Shorts", "Auto"],
   };
