@@ -6,27 +6,28 @@ const QUEUE_PREFIX = "video_queue";
 const DAILY_COUNTER_PREFIX = "daily_count";
 
 // Video qo'shish
-export async function enqueueVideo(env: Env, video: Omit<VideoRequest, "id" | "status" | "createdAt">): Promise<string> {
+export async function enqueueVideo(
+  env: Env,
+  video: Omit<VideoRequest, "id" | "status" | "createdAt">
+): Promise<string> {
   const id = crypto.randomUUID();
   const request: VideoRequest = { ...video, id, status: "pending", createdAt: new Date() };
   await env.VIDEO_QUEUE.put(`${QUEUE_PREFIX}:${id}`, JSON.stringify(request));
   return id;
 }
 
-// Daily counter uchun kalit yaratish
+// Daily counter
 function getDailyKey(date: Date | undefined): string {
   if (!date) return new Date().toISOString().split("T")[0];
   return date.toISOString().split("T")[0];
 }
 
-// Hozirgi daily count olish
 async function getCurrentDailyCount(env: Env, channelName: string, platform: string, dailyKey: string): Promise<number> {
   const key = `${DAILY_COUNTER_PREFIX}:${channelName}:${platform}:${dailyKey}`;
   const value = await env.VIDEO_QUEUE.get(key);
   return value ? parseInt(value) : 0;
 }
 
-// Daily count increment qilish
 async function incrementDailyCount(env: Env, channelName: string, platform: string, dailyKey: string): Promise<void> {
   const key = `${DAILY_COUNTER_PREFIX}:${channelName}:${platform}:${dailyKey}`;
   const current = await getCurrentDailyCount(env, channelName, platform, dailyKey);
@@ -44,12 +45,10 @@ export async function getReadyToUploadVideos(env: Env, limit = 1): Promise<Video
     if (!value) continue;
 
     const video = JSON.parse(value) as VideoRequest;
-
     if (video.status !== "pending") continue;
     if (!video.scheduledAt) continue;
     if (new Date(video.scheduledAt) > now) continue;
 
-    // Platform bo‘yicha daily limit tekshirish
     const dailyKey = getDailyKey(new Date(video.scheduledAt));
     const platforms = ["youtube", "tiktok", "instagram", "facebook"] as const;
 
@@ -63,7 +62,6 @@ export async function getReadyToUploadVideos(env: Env, limit = 1): Promise<Video
     }
 
     if (!canUpload) continue;
-
     ready.push(video);
     if (ready.length >= limit) break;
   }
@@ -95,13 +93,13 @@ export async function clearLogs(env: Env) {
   }
 }
 
-// Loglarni olish
+// Loglarni o'qish
 export async function getLogs(env: Env) {
   const list = await env.LOGS.list({ limit: 1000 });
-  const logs: Record<string, string> = {};
+  const logs = [];
   for (const key of list.keys) {
     const value = await env.LOGS.get(key.name);
-    if (value) logs[key.name] = value;
+    if (value) logs.push(JSON.parse(value));
   }
   return logs;
 }
