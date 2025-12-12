@@ -41,7 +41,7 @@ export interface Env {
   LIFE_BUNI_FB_TOKEN: string;
 }
 
-// CORS
+// CORS handler
 function handleCORS(): Response {
   return new Response(null, {
     headers: {
@@ -56,7 +56,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // CORS OPTIONS
+    // CORS preflight
     if (request.method === "OPTIONS") return handleCORS();
 
     try {
@@ -91,18 +91,36 @@ export default {
       }
 
       // --- Clear logs ---
-if (
-  (url.pathname === "/api/clear-logs" && request.method === "POST") ||
-  (url.pathname === "/api/clear-logs" && request.method === "GET")
-) {
-  await clearLogs(env);
-  await addLog(env, "🧹 Loglar tozalandi");
+      if (
+        (url.pathname === "/api/clear-logs" && request.method === "POST") ||
+        (url.pathname === "/api/clear-logs" && request.method === "GET")
+      ) {
+        await clearLogs(env);
+        await addLog(env, "🧹 Loglar tozalandi");
 
-  return new Response("✅ Logs cleared", {
-    status: 200,
-    headers: { "Access-Control-Allow-Origin": "*" },
-  });
-}
+        return new Response("✅ Logs cleared", {
+          status: 200,
+          headers: { "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      // --- Clear video queue ---
+      if (
+        (url.pathname === "/api/clear-queue" && request.method === "POST") ||
+        (url.pathname === "/api/clear-queue" && request.method === "GET")
+      ) {
+        const list = await env.VIDEO_QUEUE.list({ prefix: "video_queue" });
+        for (const key of list.keys) {
+          await env.VIDEO_QUEUE.delete(key.name);
+        }
+
+        await addLog(env, "🗑️ VIDEO_QUEUE tozalandi");
+
+        return new Response("✅ Video queue cleared", {
+          status: 200,
+          headers: { "Access-Control-Allow-Origin": "*" },
+        });
+      }
 
       // --- Get logs ---
       if (url.pathname === "/api/logs" && request.method === "GET") {
