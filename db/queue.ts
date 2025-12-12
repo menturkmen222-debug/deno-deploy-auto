@@ -1,4 +1,3 @@
-// db/queue.ts
 import type { Env } from "../index.ts";
 import { VideoRequest } from "../types.ts";
 
@@ -23,7 +22,7 @@ function getDailyKey(date: Date | undefined): string {
 }
 
 // --- Hozirgi kun hisobini olish ---
-async function getCurrentDailyCount(env: Env, channelName: string, platform: string, dailyKey: string): Promise<number> {
+export async function getCurrentDailyCount(env: Env, channelName: string, platform: string, dailyKey: string): Promise<number> {
   const key = `${DAILY_COUNTER_PREFIX}:${channelName}:${platform}:${dailyKey}`;
   const value = await env.VIDEO_QUEUE.get(key);
   return value ? parseInt(value) : 0;
@@ -51,19 +50,6 @@ export async function getReadyToUploadVideos(env: Env, limit = 1): Promise<Video
     if (!video.scheduledAt) continue;
     if (new Date(video.scheduledAt) > now) continue;
 
-    const dailyKey = getDailyKey(new Date(video.scheduledAt));
-    const platforms = ["youtube", "tiktok", "instagram", "facebook"] as const;
-
-    let canUpload = false;
-    for (const platform of platforms) {
-      const currentCount = await getCurrentDailyCount(env, video.channelName, platform, dailyKey);
-      if (currentCount < 50) { // limit 50
-        await incrementDailyCount(env, video.channelName, platform, dailyKey);
-        canUpload = true;
-      }
-    }
-
-    if (!canUpload) continue;
     ready.push(video);
     if (ready.length >= limit) break;
   }
