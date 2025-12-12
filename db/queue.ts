@@ -1,4 +1,3 @@
-// db/queue.ts
 import type { Env } from "../index.ts";
 import { VideoRequest } from "../types.ts";
 
@@ -16,25 +15,27 @@ export async function enqueueVideo(
   return id;
 }
 
-// Daily counter
+// Daily counter key
 function getDailyKey(date: Date | undefined): string {
   if (!date) return new Date().toISOString().split("T")[0];
   return date.toISOString().split("T")[0];
 }
 
+// Hozirgi daily countni olish
 async function getCurrentDailyCount(env: Env, channelName: string, platform: string, dailyKey: string): Promise<number> {
   const key = `${DAILY_COUNTER_PREFIX}:${channelName}:${platform}:${dailyKey}`;
   const value = await env.VIDEO_QUEUE.get(key);
   return value ? parseInt(value) : 0;
 }
 
+// Daily countni oshirish
 async function incrementDailyCount(env: Env, channelName: string, platform: string, dailyKey: string): Promise<void> {
   const key = `${DAILY_COUNTER_PREFIX}:${channelName}:${platform}:${dailyKey}`;
   const current = await getCurrentDailyCount(env, channelName, platform, dailyKey);
   await env.VIDEO_QUEUE.put(key, (current + 1).toString());
 }
 
-// Tayyor videolarni olish
+// Tayyor videolarni olish (platforma bo‘yicha daily limit tekshiriladi)
 export async function getReadyToUploadVideos(env: Env, limit = 1): Promise<VideoRequest[]> {
   const now = new Date();
   const keys = await env.VIDEO_QUEUE.list({ prefix: QUEUE_PREFIX });
@@ -52,11 +53,11 @@ export async function getReadyToUploadVideos(env: Env, limit = 1): Promise<Video
     const dailyKey = getDailyKey(new Date(video.scheduledAt));
     const platforms = ["youtube", "tiktok", "instagram", "facebook"] as const;
 
+    // Platforma bo‘yicha limitlarni tekshirish
     let canUpload = false;
     for (const platform of platforms) {
       const currentCount = await getCurrentDailyCount(env, video.channelName, platform, dailyKey);
       if (currentCount < 50) {
-        await incrementDailyCount(env, video.channelName, platform, dailyKey);
         canUpload = true;
       }
     }
@@ -83,6 +84,14 @@ export async function updateVideoStatus(
   const video = JSON.parse(value) as VideoRequest;
   const updated = { ...video, status, ...metadata };
   await env.VIDEO_QUEUE.put(keyName, JSON.stringify(updated));
+}
+
+// VIDEO_QUEUE tozalash
+export async function clearVideoQueue(env: Env) {
+  const list = await env.VIDEO_QUEUE.list({ prefix: QUEUE_PREFIX });
+  for (const key of list.keys) {
+    await env.VIDEO_QUEUE.delete(key.name);
+  }
 }
 
 // Loglarni tozalash
