@@ -3,7 +3,7 @@ import { handleScheduleAll } from "./routes/schedule.ts";
 import { handleStats } from "./routes/stats.ts";
 
 // TO‘G‘RI IMPORT
-import { clearLogs, getLogs, addLog } from "./routes/logs.ts";
+import { clearLogs, getLogs, addLog } from "./db/logs.ts";
 
 export interface Env {
   VIDEO_QUEUE: KVNamespace;
