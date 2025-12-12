@@ -11,7 +11,6 @@ export async function generateMetadata(env: Env, prompt: string): Promise<{ titl
     return fallbackMetadata(prompt, "No API Key");
   }
 
-  // System prompt
   const systemPrompt = `You are a professional YouTube Shorts creator for US audience. Respond ONLY with valid JSON. Keys: "title" (max 55 chars), "description" (max 180 chars), "tags" (array of 5-10 strings).`;
 
   try {
@@ -24,7 +23,7 @@ export async function generateMetadata(env: Env, prompt: string): Promise<{ titl
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile", // aktiv model
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Create metadata for: ${prompt}` }
@@ -44,7 +43,7 @@ export async function generateMetadata(env: Env, prompt: string): Promise<{ titl
 
     const json = await res.json();
 
-    // log full response
+    // full response log
     console.log("[Groq AI] Full response:", JSON.stringify(json, null, 2));
 
     let content = json.choices?.[0]?.message?.content?.trim() || "{}";
@@ -63,10 +62,18 @@ export async function generateMetadata(env: Env, prompt: string): Promise<{ titl
       const description = (parsed.description || prompt).substring(0, 180).trim();
       const tags = Array.isArray(parsed.tags) ? parsed.tags.slice(0, 10) : ["AI", "Shorts", "Viral"];
 
+      // ✅ Full log including description
       console.log("[Groq AI] ✅ Metadata tayyor!");
-      console.log("📌 Title:", title);
-      console.log("📌 Description:", description);
-      console.log("📌 Tags:", tags);
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level: "info",
+        message: "🧠 AI metadata yaratildi",
+        context: {
+          title,
+          description,
+          tags
+        }
+      }, null, 2));
 
       return { title, description, tags };
 
@@ -85,9 +92,21 @@ export async function generateMetadata(env: Env, prompt: string): Promise<{ titl
 function fallbackMetadata(prompt: string, reason: string): { title: string; description: string; tags: string[] } {
   console.warn(`⚠️ Fallback ishlatilmoqda. Sabab: ${reason}`);
   const title = prompt.split(" ").slice(0, 6).join(" ") || "AI Shorts";
-  return {
-    title,
-    description: prompt,
-    tags: ["AI", "Shorts", "Auto"],
-  };
+  const description = prompt;
+  const tags = ["AI", "Shorts", "Auto"];
+
+  // fallback log
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: "warn",
+    message: "⚠️ Fallback metadata ishlatildi",
+    context: {
+      reason,
+      title,
+      description,
+      tags
+    }
+  }, null, 2));
+
+  return { title, description, tags };
 }
