@@ -7,10 +7,10 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
   const logger = new Logger(env);
   const client_id = "209564473028-2gkh592o4gkba6maepq61sh5np6japen.apps.googleusercontent.com";
   const client_secret = "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";
-  const refreshToken = "1//04fITPJejppkXCgYIARAAGAQSNwF-L9Ir-x_XgAP_Jja5mkn5NqnCjyjs91O94FJIeMYtiSJRTsXhdFhbv18KCT4PzB2mkniM_A4";
+  const refreshToken = "1//04fITPJejppkXCgYIARAAGAQSNwF-L9Ir-x_XgAP_Jja5mknCjyjs91O94FJIeMYtiSJRTsXhdFhbv18KCT4PzB2mkniM_A4";
 
   try {
-    // Access token olish
+    // 1️⃣ Access token olish
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -31,26 +31,30 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
     const { access_token } = await tokenRes.json();
     await logger.info("🔑 YouTube access token olindi");
 
-    // Video yuklash
+    // 2️⃣ Video URL dan yuklash
     const videoRes = await fetch(video.videoUrl);
     if (!videoRes.ok) {
-      await logger.error("📥 Cloudinarydan video yuklanmadi", { status: videoRes.status });
+      await logger.error("📥 Video yuklanmadi", { status: videoRes.status });
       return false;
     }
 
-    const videoBytes = new Uint8Array(await videoRes.arrayBuffer());
+    const videoBuffer = await videoRes.arrayBuffer();
+
+    // 3️⃣ Metadata
     const metadata = {
       snippet: {
         title: video.title || "AI Auto Shorts Upload",
         description: video.description || "Uploaded using Refresh Token!",
-        tags: ["shorts", "ai", "viral"],
+        tags: video.tags || ["shorts", "ai", "viral"],
         categoryId: "22",
       },
       status: { privacyStatus: "public" },
     };
 
-    const boundary = "----YouTubeBoundary" + crypto.randomUUID().substring(0, 8);
-    const body = buildMultipartPayload(metadata, videoBytes, boundary);
+    // 4️⃣ FormData bilan multipart upload
+    const formData = new FormData();
+    formData.append("snippet", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+    formData.append("video", new Blob([videoBuffer], { type: "video/mp4" }));
 
     const uploadRes = await fetch(
       "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status",
@@ -58,9 +62,8 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
         method: "POST",
         headers: {
           Authorization: `Bearer ${access_token}`,
-          "Content-Type": `multipart/related; boundary=${boundary}`,
         },
-        body,
+        body: formData,
       }
     );
 
@@ -70,21 +73,20 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
       return false;
     }
 
-    await logger.info("✅ YouTubega muvaffaqiyatli yuklandi", { title: video.title });
+    const uploadData = await uploadRes.json();
+    await logger.info("✅ YouTubega muvaffaqiyatli yuklandi", {
+      videoId: uploadData.id,
+      title: video.title,
+      url: `https://www.youtube.com/shorts/${uploadData.id}`,
+    });
+
     return true;
+
   } catch (err) {
-    await logger.error("💥 YouTube yuklashda kutilmagan xato", {
+    await logger.error("💥 YouTube uploadda kutilmagan xato", {
       error: err.message,
       stack: err.stack,
     });
     return false;
   }
-}
-
-function buildMultipartPayload(metadata: any, videoBytes: Uint8Array, boundary: string): string {
-  let payload = "";
-  payload += `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(metadata)}\r\n`;
-  payload += `--${boundary}\r\nContent-Type: video/mp4\r\n\r\n${new TextDecoder().decode(videoBytes)}\r\n`;
-  payload += `--${boundary}--\r\n`;
-  return payload;
 }
