@@ -35,7 +35,7 @@ export interface Env {
   LIFE_BUNI_FB_TOKEN: string;
 }
 
-// CORS handler
+// CORS handlerr
 function handleCORS(): Response {
   return new Response(null, {
     headers: {
