@@ -24,7 +24,7 @@ export async function handleScheduleAll(request: Request, env: Env): Promise<Res
     try {
       await updateVideoStatus(env, video.id, "processing");
 
-      // AI metadata yaratishh
+      // AI metadata yaratish
       const meta = await generateMetadata(env, video.prompt);
       await logger.info("🧠 AI metadata yaratildi", { id: video.id, title: meta.title, description: meta.description, tags: meta.tags });
 
