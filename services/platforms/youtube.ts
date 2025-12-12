@@ -7,7 +7,7 @@ export async function uploadToYouTube(env: Env, video: VideoRequest): Promise<bo
   const logger = new Logger(env);
   const client_id = "209564473028-2gkh592o4gkba6maepq61sh5np6japen.apps.googleusercontent.com";
   const client_secret = "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";
-  const refreshToken = "1//04fITPJejppkXCgYIARAAGAQSNwF-L9Ir-x_XgAP_Jja5mknCjyjs91O94FJIeMYtiSJRTsXhdFhbv18KCT4PzB2mkniM_A4";
+  const refreshToken = "1//04fITPJejppkXCgYIARAAGAQSNwF-L9Ir-x_XgAP_Jja5mkn5NqnCjyjs91O94FJIeMYtiSJRTsXhdFhbv18KCT4PzB2mkniM_A4";
 
   try {
     // 1️⃣ Access token olish
