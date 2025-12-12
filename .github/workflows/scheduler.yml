@@ -11,4 +11,4 @@ jobs:
     steps:
       - name: Run Deno Deploy Scheduler
         run: |
-          curl -X POST https://https://autooz.tkmjoker89.workers.dev/run-schedule
+          curl -X POST https://autooz.tkmjoker89.workers.dev/run-schedule
