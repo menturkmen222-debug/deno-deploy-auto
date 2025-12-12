@@ -1,41 +1,38 @@
 // utils/logger.ts
 import type { Env } from "../index.ts";
 
-export interface LogEntry {
-  timestamp: string;
-  level: "info" | "warn" | "error";
-  message: string;
-  context?: Record<string, any>;
-}
-
 export class Logger {
   constructor(private env: Env) {}
 
-  async log(level: LogEntry["level"], message: string, context?: Record<string, any>): Promise<void> {
-    const entry: LogEntry = {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      context,
-    };
-
-    // KVga saqlash
-    const id = `log_${crypto.randomUUID()}`;
-    await this.env.LOGS.put(id, JSON.stringify(entry));
-
-    // Konsolga ham chiqarish
-    console[level](`[${level.toUpperCase()}] ${message}`, context || "");
+  async info(message: string, context?: any) {
+    console.log("INFO:", message, context || "");
+    // Agar KV log saqlashni xohlasangiz, quyidagini yoqing
+    // await this.env.LOGS.put(`log_${Date.now()}`, JSON.stringify({ level: "info", message, context }));
   }
 
-  info(message: string, context?: Record<string, any>): Promise<void> {
-    return this.log("info", message, context);
+  async error(message: string, context?: any) {
+    console.error("ERROR:", message, context || "");
+    // Agar KV log saqlashni xohlasangiz, quyidagini yoqing
+    // await this.env.LOGS.put(`log_${Date.now()}`, JSON.stringify({ level: "error", message, context }));
   }
 
-  warn(message: string, context?: Record<string, any>): Promise<void> {
-    return this.log("warn", message, context);
-  }
+  // To‘liq loglarni o‘chirish (paginated)
+  async clearLogs() {
+    let cursor: string | undefined = undefined;
+    let totalDeleted = 0;
 
-  error(message: string, context?: Record<string, any>): Promise<void> {
-    return this.log("error", message, context);
+    do {
+      const list = await this.env.LOGS.list({ cursor, limit: 1000 });
+      cursor = list.cursor;
+
+      for (const key of list.keys) {
+        await this.env.LOGS.delete(key.name);
+      }
+
+      totalDeleted += list.keys.length;
+    } while (cursor);
+
+    console.log(`✅ ${totalDeleted} ta log o‘chirildi`);
+    return totalDeleted;
   }
 }
