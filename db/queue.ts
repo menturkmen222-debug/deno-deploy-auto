@@ -1,3 +1,4 @@
+// db/queue.ts
 import type { Env } from "../index.ts";
 import { VideoRequest } from "../types.ts";
 
@@ -92,4 +93,15 @@ export async function clearLogs(env: Env) {
   for (const key of list.keys) {
     await env.LOGS.delete(key.name);
   }
+}
+
+// Loglarni olish
+export async function getLogs(env: Env) {
+  const list = await env.LOGS.list({ limit: 1000 });
+  const logs: Record<string, string> = {};
+  for (const key of list.keys) {
+    const value = await env.LOGS.get(key.name);
+    if (value) logs[key.name] = value;
+  }
+  return logs;
 }
