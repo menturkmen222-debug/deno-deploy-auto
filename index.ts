@@ -1,7 +1,7 @@
 import { handleUpload } from "./routes/upload.ts";
 import { handleScheduleAll } from "./routes/schedule.ts";
 import { handleStats } from "./routes/stats.ts";
-import { Logger } from "./utils/logger.ts";
+import { clearLogs } from "./db/queue.ts";
 
 export interface Env {
   VIDEO_QUEUE: KVNamespace;
@@ -49,12 +49,9 @@ function handleCORS(): Response {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    const logger = new Logger(env);
 
     // CORS preflight
-    if (request.method === "OPTIONS") {
-      return handleCORS();
-    }
+    if (request.method === "OPTIONS") return handleCORS();
 
     try {
       if (url.pathname === "/upload-video" && request.method === "POST") {
@@ -75,9 +72,9 @@ export default {
         return res;
       }
 
-      if (url.pathname === "/clear-logs" && request.method === "POST") {
-        const totalDeleted = await logger.clearLogs();
-        return new Response(`✅ Barcha loglar o‘chirildi: ${totalDeleted}`, { status: 200 });
+      if (url.pathname === "/api/clear-logs" && request.method === "POST") {
+        await clearLogs(env);
+        return new Response("✅ Logs cleared", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
       }
 
       return new Response("❌ Not Found", { status: 404 });
@@ -98,7 +95,7 @@ export default {
 
   // Cron Trigger (har 2 soatda)
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    const request = new Request("https://sizning-worker.com/run-schedule", { method: "POST" });
+    const request = new Request("https://YOUR_WORKER_DOMAIN/run-schedule", { method: "POST" });
     await fetch(request);
   },
 };
