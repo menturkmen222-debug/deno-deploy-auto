@@ -12,8 +12,9 @@ export async function handleScheduleAll(request: Request, env: Env): Promise<Res
   await logger.info("🔄 Scheduler ishga tushdi (barcha platformalar)");
 
   try {
-    // Bitta video olish
+    // Navbatdagi videoni olish, limit = 1
     const videos = await getReadyToUploadVideos(env, 1);
+
     if (videos.length === 0) {
       await logger.info("📭 Navbatda video yo'q");
       return new Response("No videos ready", { status: 200 });
@@ -51,25 +52,27 @@ export async function handleScheduleAll(request: Request, env: Env): Promise<Res
 
       for (const platform of ["youtube", "tiktok", "instagram", "facebook"] as const) {
         try {
+          await logger.info(`⬆️ ${platform} uchun yuklanish boshlandi`, { id: video.id });
+
           const uploadFunc = platformFuncs[platform];
           const success = await uploadFunc(env, { ...video, ...meta, platform });
+
           await updateVideoStatus(env, video.id, success ? "uploaded" : "failed", { platform });
-          await logger.info(success ? "✅ Muvaffaqiyatli yuklandi" : "❌ Yuklanmadi", {
-            id: video.id,
-            platform,
-            title: meta.title,
-          });
-        } catch (err) {
+
+          await logger.info(
+            success ? `✅ ${platform} muvaffaqiyatli yuklandi` : `❌ ${platform} yuklanmadi`,
+            { id: video.id, title: meta.title }
+          );
+        } catch (err: any) {
           await updateVideoStatus(env, video.id, "failed", { platform });
-          await logger.error("💥 Upload xatosi", {
+          await logger.error(`💥 ${platform} upload xatosi`, {
             id: video.id,
-            platform,
             error: err.message,
             stack: err.stack?.substring(0, 200),
           });
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       await updateVideoStatus(env, video.id, "failed");
       await logger.error("💥 Video ishlashda global xato", {
         id: video.id,
@@ -78,13 +81,11 @@ export async function handleScheduleAll(request: Request, env: Env): Promise<Res
       });
     }
 
-    await logger.info("✅ Video ishlandi barcha platformalar uchun");
+    await logger.info("✅ Video ishlandi barcha platformalar uchun", { id: video.id });
+
     return new Response(`Processed video ${video.id} for all platforms`, { status: 200 });
-  } catch (err) {
-    await logger.error("🔥 Scheduler xatosi", {
-      error: err.message,
-      stack: err.stack,
-    });
+  } catch (err: any) {
+    await logger.error("🔥 Scheduler xatosi", { error: err.message, stack: err.stack });
     return new Response("Internal Server Error", { status: 500 });
   }
 }
