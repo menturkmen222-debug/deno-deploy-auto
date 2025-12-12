@@ -91,15 +91,18 @@ export default {
       }
 
       // --- Clear logs ---
-      if (url.pathname === "/api/clear-logs" && request.method === "POST") {
-        await clearLogs(env);
-        await addLog(env, "🧹 Loglar tozalandi");
+if (
+  (url.pathname === "/api/clear-logs" && request.method === "POST") ||
+  (url.pathname === "/api/clear-logs" && request.method === "GET")
+) {
+  await clearLogs(env);
+  await addLog(env, "🧹 Loglar tozalandi");
 
-        return new Response("✅ Logs cleared", {
-          status: 200,
-          headers: { "Access-Control-Allow-Origin": "*" },
-        });
-      }
+  return new Response("✅ Logs cleared", {
+    status: 200,
+    headers: { "Access-Control-Allow-Origin": "*" },
+  });
+}
 
       // --- Get logs ---
       if (url.pathname === "/api/logs" && request.method === "GET") {
