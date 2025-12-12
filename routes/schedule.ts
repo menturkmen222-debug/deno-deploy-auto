@@ -8,7 +8,7 @@ import { uploadToTikTok } from "../services/platforms/tiktok.ts";
 import { uploadToInstagram } from "../services/platforms/instagram.ts";
 import { uploadToFacebook } from "../services/platforms/facebook.ts";
 
-export async function handleScheduleAll(request: Request, env: Env): Promise<Response> {
+export async function handleSchedule(request: Request, env: Env): Promise<Response> {
   const logger = new Logger(env);
   await logger.info("🔄 Scheduler ishga tushdi (barcha platformalar)");
 
