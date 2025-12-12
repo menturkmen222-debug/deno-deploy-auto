@@ -1,4 +1,4 @@
-// routes/schedule-all.ts
+// routes/schedule.ts
 import type { Env } from "../index.ts";
 import { Logger } from "../utils/logger.ts";
 import { getReadyToUploadVideos, updateVideoStatus } from "../db/queue.ts";
