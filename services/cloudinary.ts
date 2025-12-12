@@ -1,44 +1,90 @@
-// services/cloudinary.ts
 import type { Env } from "../index.ts";
+import { Logger } from "../utils/logger.ts";
+import { getReadyToUploadVideos, updateVideoStatus } from "../db/queue.ts";
+import { generateMetadata } from "../services/groq.ts";
+import { uploadToYouTube } from "../services/platforms/youtube.ts";
+import { uploadToTikTok } from "../services/platforms/tiktok.ts";
+import { uploadToInstagram } from "../services/platforms/instagram.ts";
+import { uploadToFacebook } from "../services/platforms/facebook.ts";
 
-export async function uploadToCloudinary(env: Env, file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", env.CLOUDINARY_UPLOAD_PRESET);
-  formData.append("context", `upload_date=${new Date().toISOString()}`);
-  formData.append("tags", "auto-shorts");
+export async function handleScheduleAll(request: Request, env: Env): Promise<Response> {
+  const logger = new Logger(env);
+  await logger.info("🔄 Scheduler ishga tushdi (barcha platformalar)");
 
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/video/upload`, // ✅ Bo'sh jo'siz
-    { method: "POST", body: formData }
-  );
+  try {
+    // Bitta video olish
+    const videos = await getReadyToUploadVideos(env, 1);
+    if (videos.length === 0) {
+      await logger.info("📭 Navbatda video yo'q");
+      return new Response("No videos ready", { status: 200 });
+    }
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Cloudinary upload failed: ${res.statusText} – ${errorText}`);
+    const video = videos[0];
+
+    await logger.info("▶️ Video ishlanmoqda", {
+      id: video.id,
+      prompt: video.prompt,
+      channel: video.channelName,
+    });
+
+    try {
+      await updateVideoStatus(env, video.id, "processing");
+
+      // AI metadata yaratish
+      const meta = await generateMetadata(env, video.prompt);
+      await logger.info("🧠 AI metadata yaratildi", {
+        id: video.id,
+        title: meta.title,
+        description: meta.description,
+        tags: meta.tags,
+      });
+
+      await updateVideoStatus(env, video.id, "processing", meta);
+
+      // Platformalar bo‘yicha upload
+      const platformFuncs: Record<string, (env: Env, video: any) => Promise<boolean>> = {
+        youtube: uploadToYouTube,
+        tiktok: uploadToTikTok,
+        instagram: uploadToInstagram,
+        facebook: uploadToFacebook,
+      };
+
+      for (const platform of ["youtube", "tiktok", "instagram", "facebook"] as const) {
+        try {
+          const uploadFunc = platformFuncs[platform];
+          const success = await uploadFunc(env, { ...video, ...meta, platform });
+          await updateVideoStatus(env, video.id, success ? "uploaded" : "failed", { platform });
+          await logger.info(success ? "✅ Muvaffaqiyatli yuklandi" : "❌ Yuklanmadi", {
+            id: video.id,
+            platform,
+            title: meta.title,
+          });
+        } catch (err) {
+          await updateVideoStatus(env, video.id, "failed", { platform });
+          await logger.error("💥 Upload xatosi", {
+            id: video.id,
+            platform,
+            error: err.message,
+            stack: err.stack?.substring(0, 200),
+          });
+        }
+      }
+    } catch (err) {
+      await updateVideoStatus(env, video.id, "failed");
+      await logger.error("💥 Video ishlashda global xato", {
+        id: video.id,
+        error: err.message,
+        stack: err.stack?.substring(0, 200),
+      });
+    }
+
+    await logger.info("✅ Video ishlandi barcha platformalar uchun");
+    return new Response(`Processed video ${video.id} for all platforms`, { status: 200 });
+  } catch (err) {
+    await logger.error("🔥 Scheduler xatosi", {
+      error: err.message,
+      stack: err.stack,
+    });
+    return new Response("Internal Server Error", { status: 500 });
   }
-
-  const data = await res.json();
-  return data.secure_url.trim();
-}
-
-export async function uploadUrlToCloudinary(env: Env, videoUrl: string): Promise<string> {
-  const formData = new FormData();
-  formData.append("file", videoUrl);
-  formData.append("upload_preset", env.CLOUDINARY_UPLOAD_PRESET);
-  formData.append("context", `upload_date=${new Date().toISOString()}`);
-  formData.append("tags", "auto-shorts");
-
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/video/upload`, // ✅ Bo'sh jo'siz
-    { method: "POST", body: formData }
-  );
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Cloudinary URL upload failed: ${res.statusText} – ${text}`);
-  }
-
-  const data = await res.json();
-  return data.secure_url.trim();
 }
