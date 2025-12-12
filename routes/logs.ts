@@ -1,23 +1,30 @@
-// routes/logs.ts
 import type { Env } from "../index.ts";
 
-export async function handleLogs(request: Request, env: Env): Promise<Response> {
-  try {
-    const keys = await env.LOGS.list({ prefix: "log_", limit: 50 });
-    const logs: any[] = [];
+const LOG_KEY = "SYSTEM_LOGS";
 
-    for (const key of keys.keys) {
-      const value = await env.LOGS.get(key.name);
-      if (value) logs.push(JSON.parse(value));
-    }
+// Log qo‘shish
+export async function addLog(env: Env, message: string) {
+  const old = await env.LOGS.get(LOG_KEY);
+  let logs = old ? JSON.parse(old) : [];
 
-    return new Response(JSON.stringify(logs.reverse()), {
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: "Loglarni o'qishda xato" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  logs.unshift({
+    time: new Date().toISOString(),
+    message,
+  });
+
+  // faqat oxirgi 200 ta logni saqlaymiz
+  logs = logs.slice(0, 200);
+
+  await env.LOGS.put(LOG_KEY, JSON.stringify(logs));
+}
+
+// Loglarni o‘qish
+export async function getLogs(env: Env) {
+  const raw = await env.LOGS.get(LOG_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+// Loglarni tozalash
+export async function clearLogs(env: Env) {
+  await env.LOGS.put(LOG_KEY, JSON.stringify([]));
 }
